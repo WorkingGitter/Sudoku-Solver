@@ -1,4 +1,9 @@
+/* ======================================
+* Author : Richard Chin
+* Date   : July 2020
+* =======================================*/
 #pragma once
+#include <vector>
 
 // How many cells per side on our board
 #define BOARD_SIZE 9
@@ -34,7 +39,13 @@ enum class SStateEnum {
 * This includes any indicated value, but could also store if the current value
 * was from the user, or have been calculated.
 */
-struct SStateStruct {
+struct SCellStruct {
+
+	SCellStruct(SValueEnum v = SValueEnum::SValue_Empty, SStateEnum s = SStateEnum::SState_Free)
+		: value(v), state(s)
+	{
+	}
+
 	SValueEnum value;
 	SStateEnum state;
 };
@@ -45,6 +56,28 @@ struct SStateStruct {
 class SBoard
 {
 public:
+
+	SBoard();
+
+	// Returns the array of cells for board row
+	std::vector<SCellStruct> GetRow(int);
+
+	// Returns the array of cells for board row
+	std::vector<SCellStruct> GetCol(int);
+
+	/*
+	* Returns the cell information structure
+	* col and row are the zero-based index of the board cell.
+	* This must be in the range 0 - 8.
+	*/
+	SCellStruct GetCell(int col, int row);
+		
+	/*
+	* Sets the cell value or state of the given board cell.
+	*/
+	void SetCell(int col, int row, SCellStruct cell);
+
 protected:
+	std::vector<SCellStruct> m_boarddata;
 };
 
