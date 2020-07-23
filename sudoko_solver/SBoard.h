@@ -77,6 +77,11 @@ public:
 	*/
 	void SetCell(int col, int row, SCellStruct cell);
 
+	/*
+	* Clears the entire board with empty values
+	*/
+	void ClearBoard();
+
 protected:
 	std::vector<SCellStruct> m_boarddata;
 };
