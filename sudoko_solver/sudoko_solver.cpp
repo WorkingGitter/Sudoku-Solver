@@ -76,12 +76,17 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 			return 1;
 		}
 
-		if (!SolveBoard()) {
+		bool status = SolveBoard();
+		PrintBoardToConsole();
+
+		if (!status) {
 			std::wcerr << L"# Failed to solve given board" << std::endl;
-			return 2;
+		}
+		else {
+			std::wcout << L"Board has been solved" << std::endl;
 		}
 
-		PrintBoardToConsole();
+		
 	}
 
 	return 0;
@@ -346,7 +351,28 @@ SCellStruct GetBoardCellFrom(wchar_t c)
 	return cell;
 }
 
+/*
+*/
 bool SolveBoard()
 {
-	return true;
+	bool IsRowSolved = true;
+	bool IsColSolved = true;
+	bool IsBlockSolved = true;
+
+	for (auto col = 0; col < BOARD_SIZE; col++) {
+		auto col_vec = sboard.GetCol(col);
+		IsColSolved &= sboard.IsSolved(col_vec);
+	}
+
+	for (auto row = 0; row < BOARD_SIZE; row++) {
+		auto row_vec = sboard.GetCol(row);
+		IsRowSolved &= sboard.IsSolved(row_vec);
+	}
+
+	for (auto b : { 0,1,2,3,4,5,6,7,8 }) {
+		auto block_vec = sboard.GetCol(b);
+		IsBlockSolved &= sboard.IsSolved(block_vec);
+	}
+
+	return IsRowSolved && IsColSolved && IsBlockSolved;
 }

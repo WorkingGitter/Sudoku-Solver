@@ -66,6 +66,32 @@ public:
 	std::vector<SCellStruct> GetCol(int);
 
 	/*
+	* Returns the 3x3 blocks of the sudoku board as an array of cells.
+	* The blocks are indexed from 0 - 8, starting from the top-left.
+	*
+	* Example, calling this function for the 4th block on the following
+	* layout would give the subsequent result:
+	*
+	* '''''''''''''
+	* '796 854 321'
+	* '243 176 985'
+	* '851 239 476'
+	* '   +---+   '
+	* '137|965|842'
+	* '925|418|763'
+	* '468|723|519'
+	* '   +---+   '
+	* '614 597 238'
+	* '582 341 697'
+	* '379 682 154'
+	* '''''''''''''
+	*
+	* {9,6,5,4,1,8,7,2,3}
+	*
+	*/
+	std::vector<SCellStruct> GetBlock(int);
+
+	/*
 	* Returns the cell information structure
 	* col and row are the zero-based index of the board cell.
 	* This must be in the range 0 - 8.
@@ -81,6 +107,37 @@ public:
 	* Clears the entire board with empty values
 	*/
 	void ClearBoard();
+
+	/*
+	* Tests if given array of cells has all the numbers present
+	*/
+	bool IsSolved(std::vector<SCellStruct>&);
+
+	/*
+	* Validate given array of cells
+	* Tests for duplicates. Ignores empty cells.
+	*/
+	bool IsValid(std::vector<SCellStruct>&);
+
+#if 0
+	/*
+	* Test given row to see if all numbers are present
+	*/
+	bool IsRowSolved(int row);
+
+	/*
+	* Test given column to see if all numbers are present
+	*/
+	bool IsColSolved(int col);
+
+	/*
+	* Validate given row.
+	* Tests for duplicates. Ignores empty cells.
+	*/
+	bool IsRowValid(int row);
+
+	bool IsColValid(int col);
+#endif 
 
 protected:
 	std::vector<SCellStruct> m_boarddata;
