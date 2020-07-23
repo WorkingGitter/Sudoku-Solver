@@ -9,7 +9,6 @@
 #include <filesystem>
 #include "ConsoleIO.h"
 #include "SBoard.h"
-//#include "textfile.h"	// utf-8 text file support
 #include "s_timer.h"
 
 #define BUILD_VERSION L"0.2"
