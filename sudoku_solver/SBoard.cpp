@@ -70,36 +70,8 @@ void SBoard::SetCell(int col, int row, SCell cell)
 		return;
 
 	cell.position = SPos{ col,row };
-
-	// remove any existing possible values from cell
-	if (cell.state != SStateEnum::SState_Free) {
-		cell.ClearPossibleValues();
-	}
-
 	m_boarddata[getCellIndexFrom(col, row)] = cell;
 }
-
-#if 0
-bool SBoard::IsRowSolved(int row)
-{
-	return false;
-}
-
-bool SBoard::IsColSolved(int col)
-{
-	return false;
-}
-
-bool SBoard::IsRowValid(int row)
-{
-	return false;
-}
-
-bool SBoard::IsColValid(int col)
-{
-	return false;
-}
-#endif 
 
 std::vector<SCell> SBoard::GetBlock(int index)
 {
@@ -157,29 +129,51 @@ bool SBoard::IsValid(std::vector<SCell>& vec)
 	return true;
 }
 
+/*
+* Test to see if the given value can be safely inserted at this cell
+*/
 bool SBoard::IsValueValidAt(int col, int row, SValueEnum value)
 {
 	bool isvalid = true;
 
-	// temporarily set the cell
-	auto prev_cell = GetCell(col, row);
-	SetCell(col, row, { value, SStateEnum::SState_Free });
-
 	// Test Row
-	auto puzzle_row = GetRow(row);
-	isvalid &= this->IsValid(puzzle_row);
+	// Iterate through the row cells, and compare against our test value.
+	// If it is the same (and not empty), then the test fails.
+	int rowindex = BOARD_SIZE * row;
+	for (int r = rowindex; r < (rowindex + BOARD_SIZE); r++) {
+		auto row_value = m_boarddata[r].value;
+		if ((row_value != SValueEnum::SValue_Empty) && (row_value == value)) {
+			isvalid = false;
+		}
+	}
 
 	// Test Column
-	auto puzzle_col = GetCol(col);
-	isvalid &= this->IsValid(puzzle_col);
+	// Here we are moving down the grid.
+	int colindex = getCellIndexFrom(col, 0);
+	for (int c = 0; c < BOARD_SIZE; c++) {
+		auto col_value = m_boarddata[colindex].value;
+		if ((col_value != SValueEnum::SValue_Empty) && (col_value == value)) {
+			isvalid = false;
+		}
+		colindex += BOARD_SIZE;
+	}
 
 	// Test Block
-	auto puzzle_block = GetBlock(GetBlockIndexFrom(col, row));
-	isvalid &= this->IsValid(puzzle_block);
+	int bidx = GetBlockIndexFrom(col, row);
+	int start_column = (bidx % BLOCK_SIZE) * BLOCK_SIZE;
+	int start_row = (bidx / BLOCK_SIZE) * BLOCK_SIZE;
+	int bindex = (start_row * BOARD_SIZE) + start_column;
 
-	// restore cell
-	SetCell(col, row, prev_cell);
-
+	for (int r = 0; r < BLOCK_SIZE; r++) {
+		for (int c = 0; c < BLOCK_SIZE; c++) {
+			int block_index = (r * BOARD_SIZE) + c + bindex;
+			auto block_value = m_boarddata[block_index].value;
+			if ((block_value != SValueEnum::SValue_Empty) && (block_value == value)) {
+				isvalid = false;
+			}
+		}
+	}
+	
 	return isvalid;
 }
 
@@ -217,26 +211,4 @@ bool SBoard::IsBoardSolved()
 	}
 
 	return IsRowSolved && IsColSolved && IsBlockSolved;
-}
-
-/*
-*
-*/
-void SBoard::BuildPossibleValues()
-{
-	for (auto j = 0; j < BOARD_SIZE; j++) {
-		for (auto i = 0; i < BOARD_SIZE; i++) {
-			auto cell = GetCell(i, j);
-			if (!cell.IsSolved()) {
-				cell.ClearPossibleValues();
-				for (auto & v : { 1,2,3,4,5,6,7,8,9 }) {
-					SValueEnum testValue = static_cast<SValueEnum>(v);
-					if (IsValueValidAt(cell.position, testValue)) {
-						cell.AddPossibleValue(testValue);
-					}
-				}
-				SetCell(i, j, cell);
-			}
-		}
-	}
 }

@@ -44,6 +44,10 @@ struct SPos
 {
 	SPos() {}
 	SPos(int c, int r) : col(c), row(r) {}
+	bool operator <(const SPos& other) const { 
+		return (col < other.col) || ((!(other.col < col)) && (row < other.row));
+	}
+
 	int row = 0;
 	int col = 0;
 };
@@ -65,19 +69,8 @@ public:
 	SValueEnum value;
 	SStateEnum state;
 
-	// Holds list of possible values
-	std::set<SValueEnum> possible_values;
-
 	bool IsSolved() {
 		return (state != SStateEnum::SState_Free);
-	}
-
-	void AddPossibleValue(SValueEnum v) {
-		possible_values.insert(v);
-	}
-
-	void ClearPossibleValues() {
-		possible_values.clear();
 	}
 };
 
@@ -172,29 +165,9 @@ public:
 	*/
 	bool IsBoardSolved();
 
-	void BuildPossibleValues();
-
-
-
-#if 0
-	/*
-	* Test given row to see if all numbers are present
-	*/
-	bool IsRowSolved(int row);
-
-	/*
-	* Test given column to see if all numbers are present
-	*/
-	bool IsColSolved(int col);
-
-	/*
-	* Validate given row.
-	* Tests for duplicates. Ignores empty cells.
-	*/
-	bool IsRowValid(int row);
-
-	bool IsColValid(int col);
-#endif 
+	SCell & GetCellDirect(int index) {
+		return m_boarddata[index];
+	}
 
 protected:
 	std::vector<SCell> m_boarddata;

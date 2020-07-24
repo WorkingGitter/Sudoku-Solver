@@ -14,24 +14,9 @@
 #include "SBoard.h"
 #include "s_timer.h"
 
-#define BUILD_VERSION L"0.6"
-
-// (UPDATE) : DOES NOT WORK!!
-// User-defined collection that stores information about all the cells that needs 
-// to be filled in.
-//
-// This is a lookup table, that has the cell location as the key (col,row).
-// Each cell key has a set collection that will be populated with a list of possible
-// values.
-//
-// When the set of numbers only has a single entry, then we know we have a definitive
-// solution to that cell.
-//
-// Stores (col,row)=>[set of values]
-using FreeCellCollection = std::map<std::pair<int, int>, std::set<SValueEnum>>;
+#define BUILD_VERSION L"0.7"
 
 // Method 2
-//
 // Stores: (value within a block) => [set of cell coord]
 using BlockDivisionCollection = std::map< SValueEnum, std::set<std::pair<int,int>> >;
 
@@ -45,10 +30,10 @@ void WriteBoardToFile(SBoard board, std::wstring filename);
 
 SCell GetBoardCellFrom(wchar_t c);
 bool LoadBoardState(std::wstring);
-bool SolveBoard();
 
-bool DetectDefinitiveSoves(SBoard & board);
-bool SolveBoardRecursive(SBoard);
+bool FindByElimination(SBoard & board);
+bool SolveBoardByRecursion(SBoard);
+bool SolveBoardByElimination(SBoard &);
 
 /*********************************
 * Main application entry point
@@ -108,11 +93,15 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 
 		timer t;
 		t.start();
-		//bool status = SolveBoard();
-		bool status = SolveBoardRecursive(sboard);
+
+		bool has_solved = SolveBoardByElimination(sboard);
+		if (!has_solved) {
+			has_solved = SolveBoardByRecursion(sboard);
+		}
+
 		t.stop();
 
-		if (!status) {
+		if (!has_solved) {
 			std::wcerr << L"# Failed to solve given board" << std::endl;
 		}
 		else {
@@ -284,11 +273,36 @@ void PrintHelp()
 	console.PopColourAttributes();
 }
 
-/*
+/******************************************************************************
 * Initialises our global board with the values provided in the input file.
 * This file must be in a fixed format. Users can generate a blank board using the 
 * '-c' parameter. You can then use this template to set the cell values.
-*/
+*
+* Input file content must be of the form:
+*
+* ...|...|...
+* ...|...|...
+* ...|...|...
+* ---+---+---
+* ...|...|...
+* ...|...|...
+* ...|...|...
+* ---+---+---
+* ...|...|...
+* ...|...|...
+* ...|...|...
+*
+* Or the slimline format:
+* .........
+* .........
+* .........
+* .........
+* .........
+* .........
+* .........
+* .........
+* .........
+*******************************************************************************/
 bool LoadBoardState(std::wstring filename)
 {
 	// Get the full path of the input file
@@ -312,23 +326,6 @@ bool LoadBoardState(std::wstring filename)
 		linevec.emplace_back(line);
 	}
 	in.close();
-
-	// The input file, and therefore the vector array will be of the form:
-	// +---+---+---+
-	// |123|123|123|
-	// |456| 56|4 6|
-	// |789|7  | 89|
-	// +---+---+---+
-	// |123|123|123|
-	// |456|456|456|
-	// |789|789|789|
-	// +---+---+---+
-	// |123|123|123|
-	// |4X6|456|456|
-	// |789|789|789|
-	// +---+---+---+
-	//
-	// This needs to be parsed and loaded to the board.
 
 	// lets do some validity checks
 	if (linevec.size() < 9) {
@@ -386,84 +383,69 @@ SCell GetBoardCellFrom(wchar_t c)
 }
 
 /*
+* Finds values for cells through a process of eliminating all other possibilities.
+* Return true if any addition to the board has been made.
 */
-bool SolveBoard()
+bool FindByElimination(SBoard & board) 
 {
-	bool board_solved = false;
+	// Stores: (value within a block) => [set of cell coord]
+	using ValueLookupMap = std::map< SValueEnum, std::set<SPos> >;
 
-	int niteration = 0;
-	while (!board_solved) {
+	// For each block on our board, we will monitor the free cells.
+	// Keeping a list of all valid values for each cell (within a block).
+	// Each block stores: [value] => {valid cells list}
+	std::vector< ValueLookupMap > openBlocks(BOARD_SIZE);
 
-		bool aSolutionFound = false;
+	for (auto nblock : { 0,1,2,3,4,5,6,7,8 }) {
 
-		sboard.BuildPossibleValues();
+		int start_column = (nblock % BLOCK_SIZE) * BLOCK_SIZE;
+		int start_row = (nblock / BLOCK_SIZE) * BLOCK_SIZE;
+		int bindex = (start_row * BOARD_SIZE) + start_column;
 
-		// Locate any cells that only has a single possible value.
-		for (auto j = 0; j < BOARD_SIZE; j++) {
-			for (auto i = 0; i < BOARD_SIZE; i++) {
-				auto cell = sboard.GetCell(i, j);
-				if (!cell.IsSolved()) {
-					if (cell.possible_values.size() == 1) {
-						cell.value = *cell.possible_values.begin();
-						cell.state = SStateEnum::SState_Solved;
-						sboard.SetCell(i, j, cell);
+		for (int r = 0; r < BLOCK_SIZE; r++) {
+			for (int c = 0; c < BLOCK_SIZE; c++) {
 
-						aSolutionFound = true;
+				int block_index = (r * BOARD_SIZE) + c + bindex;
+				auto & cell = board.GetCellDirect(block_index);
+				if (cell.IsSolved())
+					continue;
+
+				// If any of the values are valid for this cell, then add to 
+				// collection
+				for (auto & v : { 1,2,3,4,5,6,7,8,9 }) {
+
+					SValueEnum testValue = static_cast<SValueEnum>(v);
+					if (board.IsValueValidAt(cell.position, testValue)) {
+
+						auto it = openBlocks[nblock].insert({ testValue, {} });
+						it.first->second.insert(cell.position);
+
 					}
 				}
 			}
-		}	
-
-		// check solve
-		board_solved = sboard.IsBoardSolved();
-
-		// Display board
-		PrintBoardToConsole(sboard);
-		std::wcout << L">> Iteration : " << ++niteration << std::endl;
-
-		// We should have at least 1 possible values.
-		// indicate error if this is not the case.
-		if (!aSolutionFound && !board_solved) {
-
-			if (!aSolutionFound) {
-				std::wcout << L"# No Solution Found" << std::endl;
-				break;
-			}
 		}
-
-		if (niteration > 50)
-			break;
 	}
 
-	return board_solved;
-}
-
-bool DetectDefinitiveSoves(SBoard & board) 
-{
+	// Check for any definitive solution
 	bool aSolutionFound = false;
-	board.BuildPossibleValues();
-
-	// Locate any cells that only has a single possible value.
-	for (auto j = 0; j < BOARD_SIZE; j++) {
-		for (auto i = 0; i < BOARD_SIZE; i++) {
-			auto cell = board.GetCell(i, j);
-			if (!cell.IsSolved()) {
-				if (cell.possible_values.size() == 1) {
-					cell.value = *cell.possible_values.begin();
-					cell.state = SStateEnum::SState_Solved;
-					board.SetCell(i, j, cell);
-					aSolutionFound = true;
-				}
+	for (auto & block : openBlocks) {
+		for (auto & validvalues : block) {
+			if (validvalues.second.size() == 1) {
+				board.SetCell(
+					validvalues.second.begin()->col,
+					validvalues.second.begin()->row,
+					{ validvalues.first, SStateEnum::SState_Solved }	// value/state
+				);
+				aSolutionFound = true;
 			}
 		}
 	}
-
 	return aSolutionFound;
 }
 
-bool SolveBoardRecursive(SBoard board)
+bool SolveBoardByRecursion(SBoard board)
 {
-	DetectDefinitiveSoves(board);
+	FindByElimination(board);
 	PrintBoardToConsole(board);
 	if (board.IsBoardSolved())
 		return true;
@@ -480,7 +462,7 @@ bool SolveBoardRecursive(SBoard board)
 						cell.value = testValue;
 						cell.state = SStateEnum::SState_New;
 						board.SetCell(cell.position.col, cell.position.row, cell);
-						if (SolveBoardRecursive(board))
+						if (SolveBoardByRecursion(board))
 						{
 							return true;
 						}
@@ -492,4 +474,26 @@ bool SolveBoardRecursive(SBoard board)
 		}
 	}
 	return false;
+}
+
+/*
+*/
+bool SolveBoardByElimination(SBoard & board)
+{
+	bool is_solved = false;
+
+	int iteration = 0;
+	while (!is_solved) {
+		bool boardHasChanged = FindByElimination(board);
+		is_solved = board.IsBoardSolved();
+
+		// Give up if we are stuck.
+		if (!is_solved && !boardHasChanged)
+			break;
+
+		PrintBoardToConsole(board);
+		iteration++;
+	}
+
+	return is_solved;
 }
