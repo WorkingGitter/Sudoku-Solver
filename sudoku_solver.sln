@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28307.1169
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sudoko_solver", "sudoko_solver\sudoko_solver.vcxproj", "{32DFE48B-4141-42D9-8882-A9E4E62247D7}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sudoku_solver", "sudoku_solver\sudoku_solver.vcxproj", "{32DFE48B-4141-42D9-8882-A9E4E62247D7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
