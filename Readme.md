@@ -44,5 +44,38 @@ Use the following command
 SSolve.exe -s[olve] "sudoku_template.txt"
 ```
 
+The application will now display the board whilst solving.
 
-The application should now display the board in its solved state.
+## Remarks
+The format of the input file can be more elaborate, as shown here:
+
+```
++---+---+---+
+|2 4|1..| ..|
+| ..|5.3|6.7|
+|...|9 .|4 .|
++---+---+---+
+|9. |4..|.1.|
+|65.|.1.|.74|
+|.2.|..8| .9|
++---+---+---+
+|. 9|. 5|...|
+|5.2|3.1|.  |
+|.. |..4|1 2|
++---+---+---+
+```
+
+Or it can be more compact, as follows:
+
+```
+.35.6.4..
+.685....1
+..4.1.9..
+.9.....3.
+.5....7.8
+....3....
+...1.6..9
+.8.....76
+.7.8..1..
+```
+The solver will ignore blank lines or separators (those that being with '-' or '+').
