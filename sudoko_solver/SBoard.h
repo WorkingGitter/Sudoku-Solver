@@ -4,6 +4,7 @@
 * =======================================*/
 #pragma once
 #include <vector>
+#include <set>
 
 // How many cells per side on our board
 #define BOARD_SIZE 9
@@ -32,7 +33,19 @@ enum class SValueEnum {
 enum class SStateEnum {
 	SState_Fixed,		// Cannot be changed.
 	SState_Solved,		// Originally free, but now solved.
+	SState_New,
 	SState_Free			// Not solved, free to change.
+};
+
+/*
+* Encapsulates the position of a cell
+*/
+struct SPos 
+{
+	SPos() {}
+	SPos(int c, int r) : col(c), row(r) {}
+	int row = 0;
+	int col = 0;
 };
 
 /*
@@ -40,17 +53,32 @@ enum class SStateEnum {
 * This includes any indicated value, but could also store if the current value
 * was from the user, or have been calculated.
 */
-struct SCell {
-
+struct SCell 
+{
+public:
 	SCell(SValueEnum v = SValueEnum::SValue_Empty, SStateEnum s = SStateEnum::SState_Free)
 		: value(v), state(s)
 	{
 	}
 
-	int row;
-	int column;
+	SPos position;
 	SValueEnum value;
 	SStateEnum state;
+
+	// Holds list of possible values
+	std::set<SValueEnum> possible_values;
+
+	bool IsSolved() {
+		return (state != SStateEnum::SState_Free);
+	}
+
+	void AddPossibleValue(SValueEnum v) {
+		possible_values.insert(v);
+	}
+
+	void ClearPossibleValues() {
+		possible_values.clear();
+	}
 };
 
 /******************************************
@@ -134,10 +162,18 @@ public:
 	*/
 	bool IsValueValidAt(int col, int row, SValueEnum value);
 
+	/* Overloaded function */
+	bool IsValueValidAt(SPos pos, SValueEnum value) {
+		return IsValueValidAt(pos.col, pos.row, value);
+	}
+
 	/*
 	* Performs a test on the entire board in its current state for completeness.
 	*/
 	bool IsBoardSolved();
+
+	void BuildPossibleValues();
+
 
 
 #if 0

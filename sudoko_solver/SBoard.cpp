@@ -69,8 +69,13 @@ void SBoard::SetCell(int col, int row, SCell cell)
 	if ((col >= BOARD_SIZE) || (row >= BOARD_SIZE))
 		return;
 
-	cell.column = col;
-	cell.row    = row;
+	cell.position = SPos{ col,row };
+
+	// remove any existing possible values from cell
+	if (cell.state != SStateEnum::SState_Free) {
+		cell.ClearPossibleValues();
+	}
+
 	m_boarddata[getCellIndexFrom(col, row)] = cell;
 }
 
@@ -212,4 +217,26 @@ bool SBoard::IsBoardSolved()
 	}
 
 	return IsRowSolved && IsColSolved && IsBlockSolved;
+}
+
+/*
+*
+*/
+void SBoard::BuildPossibleValues()
+{
+	for (auto j = 0; j < BOARD_SIZE; j++) {
+		for (auto i = 0; i < BOARD_SIZE; i++) {
+			auto cell = GetCell(i, j);
+			if (!cell.IsSolved()) {
+				cell.ClearPossibleValues();
+				for (auto & v : { 1,2,3,4,5,6,7,8,9 }) {
+					SValueEnum testValue = static_cast<SValueEnum>(v);
+					if (IsValueValidAt(cell.position, testValue)) {
+						cell.AddPossibleValue(testValue);
+					}
+				}
+				SetCell(i, j, cell);
+			}
+		}
+	}
 }
