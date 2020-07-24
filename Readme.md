@@ -1,7 +1,7 @@
 # Sudoku Solver
 
-## About
 A simple, command line app that solves given Sudoku puzzles.
+Written in C++ using Visual Studio 2017.
 
 ## Instructions
 The state of a given board is submitted to the application via a text file.
