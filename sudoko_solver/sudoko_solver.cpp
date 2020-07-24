@@ -8,22 +8,45 @@
 #include <algorithm>
 #include <filesystem>
 #include <cassert>
+#include <map>
+#include <set>
 #include "ConsoleIO.h"
 #include "SBoard.h"
 #include "s_timer.h"
 
 #define BUILD_VERSION L"0.2"
 
+// (UPDATE) : DOES NOT WORK!!
+// User-defined collection that stores information about all the cells that needs 
+// to be filled in.
+//
+// This is a lookup table, that has the cell location as the key (col,row).
+// Each cell key has a set collection that will be populated with a list of possible
+// values.
+//
+// When the set of numbers only has a single entry, then we know we have a definitive
+// solution to that cell.
+//
+// Stores (col,row)=>[set of values]
+using FreeCellCollection = std::map<std::pair<int, int>, std::set<SValueEnum>>;
+
+// Method 2
+//
+// Stores: (value within a block) => [set of cell coord]
+using BlockDivisionCollection = std::map< SValueEnum, std::set<std::pair<int,int>> >;
+
+
 SBoard sboard;
 
 void PrintHelp();
 void PrintBoardToConsole();
-wchar_t GetDisplayChar(SCellStruct);
+wchar_t GetDisplayChar(SCell);
 void WriteBoardToFile(SBoard board, std::wstring filename);
 
-SCellStruct GetBoardCellFrom(wchar_t c);
+SCell GetBoardCellFrom(wchar_t c);
 bool LoadBoardState(std::wstring);
 bool SolveBoard();
+void GetOpenCells(FreeCellCollection & opencells);
 
 /*********************************
 * Main application entry point
@@ -70,14 +93,21 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 	}
 
 	if (issolve) {
-		
+
+		{
+			CConsoleIO console;
+			console.ClearScreen();
+		}
+
 		if (!LoadBoardState(filename)) {
 			std::wcerr << L"# Failed to load board settings" << std::endl;
 			return 1;
 		}
 
+		timer t;
+		t.start();
 		bool status = SolveBoard();
-		PrintBoardToConsole();
+		t.stop();
 
 		if (!status) {
 			std::wcerr << L"# Failed to solve given board" << std::endl;
@@ -86,7 +116,8 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 			std::wcout << L"Board has been solved" << std::endl;
 		}
 
-		
+		std::wcout << L"Completed in " << t.get_elapsedtime_ms() << L" ms" << std::endl;
+
 	}
 
 	return 0;
@@ -115,7 +146,7 @@ void PrintBoardToConsole()
 	std::wstring dividerline = L"+---+---+---+";	
 
 	CConsoleIO console;
-	console.ClearScreen();
+	console.SetCursorPos(0, 0);
 
 	for (int line = 0; line < BOARD_SIZE; line++) {
 
@@ -203,7 +234,7 @@ void WriteBoardToFile(SBoard board, std::wstring filename)
 * Returns the character representation of the given 
 * board cell.
 */
-wchar_t GetDisplayChar(SCellStruct cell) 
+wchar_t GetDisplayChar(SCell cell) 
 {
 	wchar_t c{ (TCHAR)' ' };
 
@@ -218,7 +249,7 @@ wchar_t GetDisplayChar(SCellStruct cell)
 	case SValueEnum::SValue_7: c = L'7'; break;
 	case SValueEnum::SValue_8: c = L'8'; break;
 	case SValueEnum::SValue_9: c = L'9'; break;
-	case SValueEnum::SValue_Empty: c = L' ';
+	case SValueEnum::SValue_Empty: c = L'.';
 	default:
 		break;
 	}
@@ -332,9 +363,9 @@ bool LoadBoardState(std::wstring filename)
 	return true;
 }
 
-SCellStruct GetBoardCellFrom(wchar_t c)
+SCell GetBoardCellFrom(wchar_t c)
 {
-	SCellStruct cell{ SValueEnum::SValue_Empty, SStateEnum::SState_Fixed };
+	SCell cell{ SValueEnum::SValue_Empty, SStateEnum::SState_Fixed };
 
 	switch (c) {
 	case L'1': cell.value = SValueEnum::SValue_1; break;
@@ -352,27 +383,160 @@ SCellStruct GetBoardCellFrom(wchar_t c)
 }
 
 /*
+* Get list of open cells
+*/
+void GetOpenCells(FreeCellCollection& opencells)
+{
+	opencells.clear();
+
+	for (auto i = 0; i < BOARD_SIZE; i++) {
+		for (auto j = 0; j < BOARD_SIZE; j++) {
+			auto cell = sboard.GetCell(i, j);
+			if (cell.state == SStateEnum::SState_Free) {
+				opencells[std::make_pair(i, j)] = std::set<SValueEnum>();
+			}
+		}
+	}
+}
+
+bool attempSolve2()
+{
+	bool found = false;
+	FreeCellCollection opencells;
+	GetOpenCells(opencells);
+
+	for (auto o : opencells) {
+		for (auto & v : { 1,2,3,4,5,6,7,8,9 }) {
+			SValueEnum testValue = static_cast<SValueEnum>(v);
+			if (sboard.IsValueValidAt(o.first.first, o.first.second, testValue)) {
+				o.second.insert(testValue);
+			}
+		}
+	}
+
+	for (auto o : opencells) {
+		if (o.second.size() == 1) {
+			sboard.SetCell(
+				o.first.first,
+				o.first.second,
+				{ *o.second.begin(), SStateEnum::SState_Solved }
+			);
+			found = true;
+		}
+	}
+	return found;
+}
+
+/*
 */
 bool SolveBoard()
 {
-	bool IsRowSolved = true;
-	bool IsColSolved = true;
-	bool IsBlockSolved = true;
+	bool board_solved = false;
 
-	for (auto col = 0; col < BOARD_SIZE; col++) {
-		auto col_vec = sboard.GetCol(col);
-		IsColSolved &= sboard.IsSolved(col_vec);
+	int niteration = 0;
+	while (!board_solved) {
+
+		// For each block on our board, we will monitor the free cells.
+		// Keeping a list of all valid values for each cell (within a block).
+		//
+		// Each block stores: [value] => {valid cells list}
+		std::vector< BlockDivisionCollection > openBlocks(BOARD_SIZE);
+
+		for (auto nblock : { 0,1,2,3,4,5,6,7,8 }) {
+			auto block_cells = sboard.GetBlock(nblock);
+
+			// Loop through each 'free' cell and test.
+			// Skip cells that are already set.
+			for (auto & cell : block_cells) {
+				if (cell.state != SStateEnum::SState_Free)
+					continue;
+
+				// if any of the values are valid for this cell, then add to 
+				// collection
+				for (auto & v : { 1,2,3,4,5,6,7,8,9 }) {
+					SValueEnum testValue = static_cast<SValueEnum>(v);
+					if (sboard.IsValueValidAt(cell.column, cell.row, testValue)) {
+
+						auto it = openBlocks[nblock].insert({ testValue, {} });
+						it.first->second.insert(std::make_pair(cell.column, cell.row));
+
+					}
+				}
+			}
+		}
+
+		// Check for any definitive solution
+		bool one_solution_found = false;
+		for (auto & block : openBlocks) {
+			for (auto & validvalues : block) {
+				if (validvalues.second.size() == 1) {
+					sboard.SetCell(
+									validvalues.second.begin()->first,					// column
+									validvalues.second.begin()->second,					// row
+									{ validvalues.first, SStateEnum::SState_Solved }	// value/state
+									);
+					one_solution_found = true;
+				}
+			}
+		}
+
+
+		// check solve
+		board_solved = sboard.IsBoardSolved();
+
+		// Display board
+		PrintBoardToConsole();
+		std::wcout << L">> Iteration : " << ++niteration << std::endl;
+
+		// We should have at least 1 possible values.
+		// indicate error if this is not the case.
+		if (!one_solution_found && !board_solved) {
+
+			/*
+			// sneaky way of locating duplicates
+			// unique: SState_Free
+			// duplicate: SState_Fixed
+			std::map<std::pair<int, int>, SCellStruct> dupl;
+
+			// check for unique cells.
+			for (auto & block : openBlocks) {
+				for (auto & validvalues : block) {
+
+					auto it = dupl.insert(std::make_pair(std::make_pair(validvalues.second.begin()->first, validvalues.second.begin()->second),
+									SCellStruct({ validvalues.first, SStateEnum::SState_Free })));
+
+					// already exist, duplicate
+					if (!it.second) {
+						it.first->second.state = SStateEnum::SState_Fixed;
+					}
+				}
+			}
+
+			for (auto & d : dupl) {
+				if (d.second.state == SStateEnum::SState_Free) {
+					sboard.SetCell(
+									d.first.first,
+									d.first.second,
+									SCellStruct { d.second.value, SStateEnum::SState_Solved }
+									);
+					one_solution_found = true;
+				}
+			}
+			*/
+
+
+			one_solution_found = attempSolve2();
+
+			if (!one_solution_found) {
+				std::wcout << L"# No Solution Found" << std::endl;
+				break;
+			}
+		}
+
+		if (niteration > 1000)
+			break;
 	}
 
-	for (auto row = 0; row < BOARD_SIZE; row++) {
-		auto row_vec = sboard.GetCol(row);
-		IsRowSolved &= sboard.IsSolved(row_vec);
-	}
-
-	for (auto b : { 0,1,2,3,4,5,6,7,8 }) {
-		auto block_vec = sboard.GetCol(b);
-		IsBlockSolved &= sboard.IsSolved(block_vec);
-	}
-
-	return IsRowSolved && IsColSolved && IsBlockSolved;
+	return board_solved;
 }
+

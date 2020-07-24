@@ -31,7 +31,8 @@ enum class SValueEnum {
 */
 enum class SStateEnum {
 	SState_Fixed,		// Cannot be changed.
-	SState_Free			// Free to change
+	SState_Solved,		// Originally free, but now solved.
+	SState_Free			// Not solved, free to change.
 };
 
 /*
@@ -39,13 +40,15 @@ enum class SStateEnum {
 * This includes any indicated value, but could also store if the current value
 * was from the user, or have been calculated.
 */
-struct SCellStruct {
+struct SCell {
 
-	SCellStruct(SValueEnum v = SValueEnum::SValue_Empty, SStateEnum s = SStateEnum::SState_Free)
+	SCell(SValueEnum v = SValueEnum::SValue_Empty, SStateEnum s = SStateEnum::SState_Free)
 		: value(v), state(s)
 	{
 	}
 
+	int row;
+	int column;
 	SValueEnum value;
 	SStateEnum state;
 };
@@ -60,10 +63,10 @@ public:
 	SBoard();
 
 	// Returns the array of cells for board row
-	std::vector<SCellStruct> GetRow(int);
+	std::vector<SCell> GetRow(int);
 
 	// Returns the array of cells for board row
-	std::vector<SCellStruct> GetCol(int);
+	std::vector<SCell> GetCol(int);
 
 	/*
 	* Returns the 3x3 blocks of the sudoku board as an array of cells.
@@ -89,19 +92,26 @@ public:
 	* {9,6,5,4,1,8,7,2,3}
 	*
 	*/
-	std::vector<SCellStruct> GetBlock(int);
+	std::vector<SCell> GetBlock(int);
+
+	/*
+	* Returns the block index from the cell coordinates
+	* see: GetBlock()
+	*/
+	int GetBlockIndexFrom(int col, int row);
+
 
 	/*
 	* Returns the cell information structure
 	* col and row are the zero-based index of the board cell.
 	* This must be in the range 0 - 8.
 	*/
-	SCellStruct GetCell(int col, int row);
+	SCell GetCell(int col, int row);
 		
 	/*
 	* Sets the cell value or state of the given board cell.
 	*/
-	void SetCell(int col, int row, SCellStruct cell);
+	void SetCell(int col, int row, SCell cell);
 
 	/*
 	* Clears the entire board with empty values
@@ -111,13 +121,24 @@ public:
 	/*
 	* Tests if given array of cells has all the numbers present
 	*/
-	bool IsSolved(std::vector<SCellStruct>&);
+	bool IsSolved(std::vector<SCell>&);
 
 	/*
 	* Validate given array of cells
 	* Tests for duplicates. Ignores empty cells.
 	*/
-	bool IsValid(std::vector<SCellStruct>&);
+	bool IsValid(std::vector<SCell>&);
+
+	/*
+	* Test to see if given value can be placed at the given cell
+	*/
+	bool IsValueValidAt(int col, int row, SValueEnum value);
+
+	/*
+	* Performs a test on the entire board in its current state for completeness.
+	*/
+	bool IsBoardSolved();
+
 
 #if 0
 	/*
@@ -140,6 +161,12 @@ public:
 #endif 
 
 protected:
-	std::vector<SCellStruct> m_boarddata;
+	std::vector<SCell> m_boarddata;
+
+	/*
+	* Returns the index within our internal array, given the cell coordinates.
+	* Cells are referred to in columns/rows
+	*/
+	int getCellIndexFrom(int col, int row);
 };
 
