@@ -14,7 +14,7 @@
 #include "SBoard.h"
 #include "s_timer.h"
 
-#define BUILD_VERSION L"0.5"
+#define BUILD_VERSION L"0.6"
 
 // (UPDATE) : DOES NOT WORK!!
 // User-defined collection that stores information about all the cells that needs 
@@ -209,19 +209,18 @@ void WriteBoardToFile(SBoard board, std::wstring filename)
 	// 
 	// Similar code structure to the one used in PrintBoardToConsole().
 	// TODO: Consolidate 
-	std::wstring dividerline = L"+---+---+---+";
+	std::wstringstream ss;
+	std::wstring dividerline = L"---+---+---";
 
 	for (int line = 0; line < BOARD_SIZE; line++) {
 
-		std::wstringstream ss;
 		auto board_line = board.GetRow(line);
 
-		if ((line % 3) == 0) {
+		if ((line > 0) && (line % 3) == 0) {
 			ss << dividerline.c_str() << std::endl;
 		}
 
-		ss << L"|"
-			<< GetDisplayChar(board_line[0])
+		ss  << GetDisplayChar(board_line[0])
 			<< GetDisplayChar(board_line[1])
 			<< GetDisplayChar(board_line[2]);
 
@@ -234,13 +233,10 @@ void WriteBoardToFile(SBoard board, std::wstring filename)
 			<< GetDisplayChar(board_line[6])
 			<< GetDisplayChar(board_line[7])
 			<< GetDisplayChar(board_line[8])
-			<< L"|" << std::endl;
-
-		outfile << ss.str().c_str();
+			<< std::endl;
 	}
-
-	outfile << dividerline.c_str();
-	outfile << L"\n";
+	ss << std::endl;
+	outfile << ss.str();
 	outfile.close();
 }
 
@@ -335,43 +331,36 @@ bool LoadBoardState(std::wstring filename)
 	// This needs to be parsed and loaded to the board.
 
 	// lets do some validity checks
-	if (linevec.size() < 13) {
+	if (linevec.size() < 9) {
 		std::wcerr << L"# not enough board lines" << std::endl;
 		return false;
 	}
 
 	int currow = 0;
 	for (auto l : linevec) {
-		if (l.size() < 13) {
+		if (l.size() < 9) {
 			std::wcerr << L"# not enough board columns on row " << (currow + 1) << std::endl;
 		}
 		currow++;
 	}
 
-	// remove borders 
-	std::vector<std::wstring> newlinevec;
-	newlinevec.push_back(linevec[1]);
-	newlinevec.push_back(linevec[2]);
-	newlinevec.push_back(linevec[3]);
-	newlinevec.push_back(linevec[5]);
-	newlinevec.push_back(linevec[6]);
-	newlinevec.push_back(linevec[7]);
-	newlinevec.push_back(linevec[9]);
-	newlinevec.push_back(linevec[10]);
-	newlinevec.push_back(linevec[11]);
-	assert(newlinevec.size() == BOARD_SIZE);
+	int row = 0;
+	for (auto & l : linevec) {
+		if (l.empty() || (l[0] == L'+') || (l[0] == L'-'))
+			continue;
 
-	for (auto row = 0; row < BOARD_SIZE; row++) {
-		auto line = newlinevec[row];
-		sboard.SetCell(0, row, GetBoardCellFrom(line[1]));
-		sboard.SetCell(1, row, GetBoardCellFrom(line[2]));
-		sboard.SetCell(2, row, GetBoardCellFrom(line[3]));
-		sboard.SetCell(3, row, GetBoardCellFrom(line[5]));
-		sboard.SetCell(4, row, GetBoardCellFrom(line[6]));
-		sboard.SetCell(5, row, GetBoardCellFrom(line[7]));
-		sboard.SetCell(6, row, GetBoardCellFrom(line[9]));
-		sboard.SetCell(7, row, GetBoardCellFrom(line[10]));
-		sboard.SetCell(8, row, GetBoardCellFrom(line[11]));
+		int col = 0;
+		for (auto & c : l) {
+			if ((c == L'|'))
+				continue;
+
+			sboard.SetCell(col, row, GetBoardCellFrom(c));
+			col++;
+		}
+		row++;
+
+		if (row > BOARD_SIZE)
+			break;
 	}
 
 	return true;
