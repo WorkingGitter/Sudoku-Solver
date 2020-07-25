@@ -3,7 +3,7 @@
 A simple, command line app that solves given Sudoku puzzles.
 Written in C++ using Visual Studio 2017.
 
-[![Build status](https://dev.azure.com/RichardChin/GitHub%20Projects/_apis/build/status/GitHub%20Projects-.NET%20Desktop-CI)](https://dev.azure.com/RichardChin/GitHub%20Projects/_build/latest?definitionId=-1)
+[![Build status](https://dev.azure.com/RichardChin/GitHub%20Projects/_apis/build/status/GitHub-Sudoku-CI)](https://dev.azure.com/RichardChin/GitHub%20Projects/_build/latest?definitionId=6)
 
 ## Instructions
 The state of a given board is submitted to the application via a text file.
