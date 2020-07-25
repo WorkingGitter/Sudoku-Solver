@@ -16,8 +16,15 @@
 
 #define BUILD_VERSION L"0.8"
 
+#define CELL_COLOUR_FIXED FOREGROUND_WHITE
+#define CELL_COLOUR_SOLVED FOREGROUND_LIGHTYELLOW
+#define CELL_COLOUR_ATTEMPT FOREGROUND_LIGHTAQUA
+
 // global puzzle board
 SBoard sboard;
+
+// iteration or moves in solve
+int _iteration = 0;
 
 void   PrintHelp();
 void    DisplayBoardToConsole(SBoard &, int indent = 0);
@@ -102,7 +109,7 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 
 		SBoard unsolved_board(sboard);
 		SBoard solved_board;
-		
+
 		bool has_solved = SolveBoardByElimination(sboard);
 
 		if (has_solved) {
@@ -120,14 +127,40 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 			console.ClearScreen();
 			DisplayBoardToConsole(unsolved_board, 0);
 			DisplayBoardToConsole(solved_board, 15);
+
+			// display legend
+			auto tc = console.GetColourAttributes();
+			console.PushColourAttributes();
+			console.SetColourAttributes(CELL_COLOUR_FIXED);
+			std::wcout << L"ллл";
+			console.SetColourAttributes(tc);
+			std::wcout << L" : Fixed Numbers" << std::endl;
+
+			console.SetColourAttributes(CELL_COLOUR_SOLVED);
+			std::wcout << L"ллл";
+			console.SetColourAttributes(tc);
+			std::wcout << L" : Solved Numbers" << std::endl;
+
+			console.SetColourAttributes(CELL_COLOUR_ATTEMPT);
+			std::wcout << L"ллл";
+			console.SetColourAttributes(tc);
+			std::wcout << L" : Current Attempts" << std::endl << std::endl;
+
+			console.PopColourAttributes();
 		}
 
-
-
-		if (!has_solved)
-			std::wcerr << L"# Failed to solve given board" << std::endl;
-		else
-			std::wcout << L"Board has been solved" << std::endl;
+		if (!has_solved) {
+			CConsoleIO console;
+			console.PushColourAttributes();
+			console.SetColourAttributes(FOREGROUND_LIGHTRED);
+			std::wcerr << L"Failed to solve given board, in ";
+			std::wcout << _iteration << L" attempts" << std::endl;
+			console.PopColourAttributes();
+		}
+		else {
+		std::wcout << L"Board has been solved, in ";
+		std::wcout << _iteration << L" attempts" << std::endl;
+	}
 
 		std::wcout << L"Completed in " << t.get_elapsedtime_sec() << L" secs" << std::endl;
 	}
@@ -183,16 +216,16 @@ void DisplayBoardToConsole(SBoard& board, int indent /*= 0*/)
 			// draw value
 			switch (board_line[ncol].state) {
 			case SStateEnum::SState_Fixed:
-				console.SetColourAttributes(FOREGROUND_WHITE);
+				console.SetColourAttributes(CELL_COLOUR_FIXED);
 				break;
 			case SStateEnum::SState_Solved:
-				console.SetColourAttributes(FOREGROUND_LIGHTYELLOW);
+				console.SetColourAttributes(CELL_COLOUR_SOLVED);
 				break;
 			case SStateEnum::SState_New:
-				console.SetColourAttributes(FOREGROUND_LIGHTAQUA);
+				console.SetColourAttributes(CELL_COLOUR_ATTEMPT);
 				break;
 			default: 
-				console.SetColourAttributes(FOREGROUND_WHITE);
+				console.SetColourAttributes(CELL_COLOUR_FIXED);
 				break;				
 			}
 			std::wcout << GetBoardCellDisplayCharacter(board_line[ncol]);
@@ -408,14 +441,6 @@ bool LoadBoardState(std::wstring source, bool useClipboard /*= false*/)
 		return false;
 	}
 
-	int currow = 0;
-	for (auto l : linevec) {
-		if (l.size() < 9) {
-			std::wcerr << L"# not enough board columns on row " << (currow + 1) << std::endl;
-		}
-		currow++;
-	}
-
 	int row = 0;
 	for (auto & l : linevec) {
 		if (l.empty() || (l[0] == L'+') || (l[0] == L'-'))
@@ -428,7 +453,17 @@ bool LoadBoardState(std::wstring source, bool useClipboard /*= false*/)
 
 			sboard.SetCell(col, row, GetBoardCellFrom(c));
 			col++;
+
+			// skip if we have enough
+			if (col >= BOARD_SIZE)
+				break;
 		}
+
+		if (col < BOARD_SIZE) {
+			std::wcerr << L"# not enough columns in row " << row << std::endl;
+			return false;
+		}
+
 		row++;
 
 		if (row > BOARD_SIZE)
@@ -532,6 +567,8 @@ bool SolveBoardByRecursion(SBoard board, SBoard* pBoard /*= nullptr*/)
 		return true;
 	}
 
+	_iteration++;
+
 	// Find next free cell
 	for (auto j = 0; j < BOARD_SIZE; j++) {
 		for (auto i = 0; i < BOARD_SIZE; i++) {
@@ -552,6 +589,12 @@ bool SolveBoardByRecursion(SBoard board, SBoard* pBoard /*= nullptr*/)
 					}
 				}
 				board.SetCell(cell.position.col, cell.position.row, SCell{});
+
+				// copy solved board 
+				if (pBoard != nullptr) {
+					*pBoard = board;
+				}
+
 				return false;
 			}
 		}
@@ -566,7 +609,6 @@ bool SolveBoardByElimination(SBoard & board)
 	DisplayBoardToConsole(board);
 	bool is_solved = false;
 
-	int iteration = 0;
 	while (!is_solved) {
 		bool boardHasChanged = FindByElimination(board);
 		is_solved = board.IsBoardSolved();
@@ -576,7 +618,7 @@ bool SolveBoardByElimination(SBoard & board)
 			break;
 
 		DisplayBoardToConsole(board);
-		iteration++;
+		_iteration++;
 	}
 	return is_solved;
 }
