@@ -14,25 +14,22 @@
 #include "SBoard.h"
 #include "s_timer.h"
 
-#define BUILD_VERSION L"0.7"
+#define BUILD_VERSION L"0.8"
 
-// Method 2
-// Stores: (value within a block) => [set of cell coord]
-using BlockDivisionCollection = std::map< SValueEnum, std::set<std::pair<int,int>> >;
-
-
+// global puzzle board
 SBoard sboard;
 
-void PrintHelp();
-void PrintBoardToConsole(SBoard &);
-wchar_t GetDisplayChar(SCell);
-void WriteBoardToFile(SBoard board, std::wstring filename);
+void   PrintHelp();
+void    DisplayBoardToConsole(SBoard &, int indent = 0);
+void    WriteBoardToTextFile(SBoard board, std::wstring filename);
+wchar_t GetBoardCellDisplayCharacter(SCell);
 
 SCell GetBoardCellFrom(wchar_t c);
-bool LoadBoardState(std::wstring);
+bool  LoadBoardState(std::wstring source, bool useClipboard = false);
 
+// solving algorithms
 bool FindByElimination(SBoard & board);
-bool SolveBoardByRecursion(SBoard);
+bool SolveBoardByRecursion(SBoard, SBoard* pBoard = nullptr);
 bool SolveBoardByElimination(SBoard &);
 
 /*********************************
@@ -44,49 +41,58 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 	if(argc < 2)
 		PrintHelp();
 
-	// options variables
-	bool iscreate = false;
-	bool issolve = false;
-	std::wstring filename;
+	// Options
+	// These will be determined from the input parameters
+	bool action_create           = false;			// generate blank template layout
+	bool action_solve            = false;			// solve given board (using file or clipboard)
+	bool action_useclipboarddata = false;			// use data in clipboard as source
+	std::wstring param_create    = { L"-c" };		//
+	std::wstring param_solve     = { L"-s" };		//
+	std::wstring filename        = { L"" };			//
 
-	std::wstring param_create{ L"-c" };
-	std::wstring param_solve{ L"-s" };
-
-	// loop through all our parameters and set our options variables
+	// Loop through all our parameters and set our options variables
 	// NB: The first parameter will be the application filename, so we want to
 	//     skip this.
 	for (int n = 1; n < argc; n++) {
 
 		bool create = (param_create.compare(argv[n]) == 0);
 		bool solve  = (param_solve.compare(argv[n]) == 0);
-		iscreate   |= create;
-		issolve    |= solve;
+		action_create   |= create;
+		action_solve    |= solve;
 
 		if (!create && !solve) {
 			filename = argv[n];
 		}
 	}
 
+	// If no filename supplied, use a default.
 	if (filename.empty()) {
-		filename = L"sudoku_template.txt";
+		filename = L"puzzleboard.txt";
+		action_useclipboarddata = true;
 	}
 
 	// remove any enclosing quotes
 	filename.erase(std::remove(filename.begin(), filename.end(), L'\"'), filename.end());
 
-	// create a new, empty board and write to file
-	if (iscreate) {
-		WriteBoardToFile({}, filename);
+	// If we are generating a blank layout, then print to target file and
+	// also display to screen.
+	if (action_create) {
+		CConsoleIO con;
+		con.ClearScreen();
+		SBoard b;
+		WriteBoardToTextFile(b, filename);
+		DisplayBoardToConsole(b);
+		return 0;
 	}
 
-	if (issolve) {
+	if (action_solve) {
 
 		{
 			CConsoleIO console;
 			console.ClearScreen();
 		}
 
-		if (!LoadBoardState(filename)) {
+		if (!LoadBoardState(filename, action_useclipboarddata)) {
 			std::wcerr << L"# Failed to load board settings" << std::endl;
 			return 1;
 		}
@@ -94,26 +100,43 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 		timer t;
 		t.start();
 
+		SBoard unsolved_board(sboard);
+		SBoard solved_board;
+		
 		bool has_solved = SolveBoardByElimination(sboard);
-		if (!has_solved) {
-			has_solved = SolveBoardByRecursion(sboard);
+
+		if (has_solved) {
+			solved_board = sboard;
+		}
+		else {
+			has_solved = SolveBoardByRecursion(sboard, &solved_board);
 		}
 
 		t.stop();
 
-		if (!has_solved) {
+		// Print out final layout
+		{
+			CConsoleIO console;
+			console.ClearScreen();
+			DisplayBoardToConsole(unsolved_board, 0);
+			DisplayBoardToConsole(solved_board, 15);
+		}
+
+
+
+		if (!has_solved)
 			std::wcerr << L"# Failed to solve given board" << std::endl;
-		}
-		else {
+		else
 			std::wcout << L"Board has been solved" << std::endl;
-		}
 
 		std::wcout << L"Completed in " << t.get_elapsedtime_sec() << L" secs" << std::endl;
-
 	}
 
 	return 0;
 }
+
+
+
 
 /*
 * Draws the current contents of the board to the console window.
@@ -133,12 +156,12 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 * |789|789|789|
 * +---+---+---+
 */
-void PrintBoardToConsole(SBoard& board)
+void DisplayBoardToConsole(SBoard& board, int indent /*= 0*/)
 {
-	std::wstring dividerline = L"+---+---+---+";	
-
 	CConsoleIO console;
-	console.SetCursorPos(0, 0);	
+	std::wstring dividerline = L"+---+---+---+";
+
+	console.SetCursorPos(indent, 0);
 
 	for (int line = 0; line < BOARD_SIZE; line++) {
 
@@ -146,6 +169,7 @@ void PrintBoardToConsole(SBoard& board)
 
 		if ((line % 3) == 0) {
 			std::wcout << dividerline.c_str() << std::endl;
+			console.SetCursorX(indent);
 		}
 
 		console.PushColourAttributes();
@@ -171,22 +195,22 @@ void PrintBoardToConsole(SBoard& board)
 				console.SetColourAttributes(FOREGROUND_WHITE);
 				break;				
 			}
-			std::wcout << GetDisplayChar(board_line[ncol]);
+			std::wcout << GetBoardCellDisplayCharacter(board_line[ncol]);
 		}
 
 		console.PopColourAttributes();
 		std::wcout << L"|" << std::endl;
+		console.SetCursorX(indent);
 	}
 
 	std::wcout << dividerline.c_str() << std::endl;
-	
 }
 
 /*
 * Creates the given file and writes the given board.
 * The file will be created in the application directory.
 */
-void WriteBoardToFile(SBoard board, std::wstring filename)
+void WriteBoardToTextFile(SBoard board, std::wstring filename)
 {
 	std::filesystem::path file(filename);
 	auto curpath = std::filesystem::current_path();
@@ -209,19 +233,19 @@ void WriteBoardToFile(SBoard board, std::wstring filename)
 			ss << dividerline.c_str() << std::endl;
 		}
 
-		ss  << GetDisplayChar(board_line[0])
-			<< GetDisplayChar(board_line[1])
-			<< GetDisplayChar(board_line[2]);
+		ss  << GetBoardCellDisplayCharacter(board_line[0])
+			<< GetBoardCellDisplayCharacter(board_line[1])
+			<< GetBoardCellDisplayCharacter(board_line[2]);
 
 		ss << L"|"
-			<< GetDisplayChar(board_line[3])
-			<< GetDisplayChar(board_line[4])
-			<< GetDisplayChar(board_line[5]);
+			<< GetBoardCellDisplayCharacter(board_line[3])
+			<< GetBoardCellDisplayCharacter(board_line[4])
+			<< GetBoardCellDisplayCharacter(board_line[5]);
 
 		ss << L"|"
-			<< GetDisplayChar(board_line[6])
-			<< GetDisplayChar(board_line[7])
-			<< GetDisplayChar(board_line[8])
+			<< GetBoardCellDisplayCharacter(board_line[6])
+			<< GetBoardCellDisplayCharacter(board_line[7])
+			<< GetBoardCellDisplayCharacter(board_line[8])
 			<< std::endl;
 	}
 	ss << std::endl;
@@ -233,7 +257,7 @@ void WriteBoardToFile(SBoard board, std::wstring filename)
 * Returns the character representation of the given 
 * board cell.
 */
-wchar_t GetDisplayChar(SCell cell) 
+wchar_t GetBoardCellDisplayCharacter(SCell cell) 
 {
 	wchar_t c{ (TCHAR)' ' };
 
@@ -256,9 +280,9 @@ wchar_t GetDisplayChar(SCell cell)
 	return c;
 }
 
-/*
+/*************************************************
 * Displayed if no parameters provided by the user.
-*/
+**************************************************/
 void PrintHelp()
 {
 	CConsoleIO console;
@@ -269,7 +293,16 @@ void PrintHelp()
 	std::wcout << L"Usage:" << std::endl;
 
 	console.SetColourAttributes(FOREGROUND_LIGHTYELLOW);
-	std::wcout << L"  SSolve.exe -c[reate] -s[solve] <filename.txt>" << std::endl;
+	std::wcout << L"  SSolve.exe -c -s <filename.txt>" << std::endl << std::endl;
+
+	console.SetColourAttributes(FOREGROUND_WHITE);
+	std::wcout << L"where:" << std::endl;
+
+	console.SetColourAttributes(FOREGROUND_LIGHTYELLOW);
+	std::wcout << L"  -c: Create blank board layout to given file/screen" << std::endl;
+	std::wcout << L"  -s: Solve using layout in either file or clipboard" << std::endl;
+	std::wcout << L"      If no input file given, the clipboard data will be used" << std::endl;
+
 	console.PopColourAttributes();
 }
 
@@ -302,30 +335,72 @@ void PrintHelp()
 * .........
 * .........
 * .........
+*
+* PARAMETERS:
+*		source - filename of text file containing board data.
+*		useClipboard - If true, then the contents of the clipboard is used.
+*					   'source' is ignored.
+*
+* REMARKS:
 *******************************************************************************/
-bool LoadBoardState(std::wstring filename)
+bool LoadBoardState(std::wstring source, bool useClipboard /*= false*/)
 {
-	// Get the full path of the input file
-	// If the full path is not supplied, then use the current folder location.
-	std::filesystem::path inpath(filename);
-	if (!inpath.has_parent_path()) {
-		std::filesystem::path file(filename);
-		auto finalpath = std::filesystem::current_path() / inpath.filename();
-		inpath = finalpath;
-	}
-
 	// load the input file into a vector array
 	std::vector<std::wstring> linevec;
 	linevec.reserve(16);
-	std::wifstream in(inpath.c_str());
-	if (!in.is_open())
-		return false;
 
-	std::wstring line;
-	while (std::getline(in, line)) {
-		linevec.emplace_back(line);
+	if (useClipboard) {
+
+		// ********************
+		// USING CLIPBOARD DATA
+		// ********************
+
+		std::wstringstream ss;
+		if (::IsClipboardFormatAvailable(CF_UNICODETEXT) && ::OpenClipboard(nullptr))
+		{
+			HGLOBAL hData = ::GetClipboardData(CF_UNICODETEXT);
+			if (nullptr != hData)
+			{
+				auto buffer = (wchar_t*)GlobalLock(hData);
+				ss << buffer;
+				GlobalUnlock(hData);
+
+				// clip data into lines
+				std::wstring line;
+				while (std::getline(ss, line)) {
+					linevec.emplace_back(line);
+				}
+			}
+			::CloseClipboard();
+		}
+
 	}
-	in.close();
+	else {
+
+		// ******************
+		// USING SOURCE FILE
+		// ******************
+
+		// Get the full path of the input file
+		// If the full path is not supplied, then use the current folder location.
+		std::filesystem::path inpath(source);
+		if (!inpath.has_parent_path()) {
+			std::filesystem::path file(source);
+			auto finalpath = std::filesystem::current_path() / inpath.filename();
+			inpath = finalpath;
+		}
+
+		std::wifstream in(inpath.c_str());
+		if (!in.is_open())
+			return false;
+
+		std::wstring line;
+		while (std::getline(in, line)) {
+			linevec.emplace_back(line);
+		}
+		in.close();
+	}
+
 
 	// lets do some validity checks
 	if (linevec.size() < 9) {
@@ -443,12 +518,19 @@ bool FindByElimination(SBoard & board)
 	return aSolutionFound;
 }
 
-bool SolveBoardByRecursion(SBoard board)
+bool SolveBoardByRecursion(SBoard board, SBoard* pBoard /*= nullptr*/)
 {
 	FindByElimination(board);
-	PrintBoardToConsole(board);
-	if (board.IsBoardSolved())
+	DisplayBoardToConsole(board);
+	if (board.IsBoardSolved()) {
+
+		// copy solved board 
+		if (pBoard != nullptr) {
+			*pBoard = board;
+		}
+
 		return true;
+	}
 
 	// Find next free cell
 	for (auto j = 0; j < BOARD_SIZE; j++) {
@@ -462,7 +544,8 @@ bool SolveBoardByRecursion(SBoard board)
 						cell.value = testValue;
 						cell.state = SStateEnum::SState_New;
 						board.SetCell(cell.position.col, cell.position.row, cell);
-						if (SolveBoardByRecursion(board))
+
+						if (SolveBoardByRecursion(board, pBoard))
 						{
 							return true;
 						}
@@ -480,6 +563,7 @@ bool SolveBoardByRecursion(SBoard board)
 */
 bool SolveBoardByElimination(SBoard & board)
 {
+	DisplayBoardToConsole(board);
 	bool is_solved = false;
 
 	int iteration = 0;
@@ -491,9 +575,8 @@ bool SolveBoardByElimination(SBoard & board)
 		if (!is_solved && !boardHasChanged)
 			break;
 
-		PrintBoardToConsole(board);
+		DisplayBoardToConsole(board);
 		iteration++;
 	}
-
 	return is_solved;
 }

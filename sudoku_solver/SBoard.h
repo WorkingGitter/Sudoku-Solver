@@ -128,6 +128,13 @@ public:
 	* This must be in the range 0 - 8.
 	*/
 	SCell GetCell(int col, int row);
+
+	/*
+	* Faster access version ?
+	*/
+	SCell & GetCellDirect(int index) {
+		return m_boarddata[index];
+	}
 		
 	/*
 	* Sets the cell value or state of the given board cell.
@@ -164,10 +171,6 @@ public:
 	* Performs a test on the entire board in its current state for completeness.
 	*/
 	bool IsBoardSolved();
-
-	SCell & GetCellDirect(int index) {
-		return m_boarddata[index];
-	}
 
 protected:
 	std::vector<SCell> m_boarddata;
