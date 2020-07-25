@@ -77,6 +77,13 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 		filename = L"puzzleboard.txt";
 		action_useclipboarddata = true;
 	}
+	else {
+		// if we supplied a filename, but no action options, then just assume we
+		// want to use that file for a solve.
+		if (!action_create && !action_solve) {
+			action_solve = true;
+		}
+	}
 
 	// remove any enclosing quotes
 	filename.erase(std::remove(filename.begin(), filename.end(), L'\"'), filename.end());
