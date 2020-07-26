@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <random>
 #include <filesystem>
 #include <cassert>
 #include <map>
@@ -560,6 +561,9 @@ bool FindByElimination(SBoard & board)
 	return aSolutionFound;
 }
 
+/*
+*  
+*/
 bool SolveBoardByRecursion(SBoard board, SBoard* pBoard /*= nullptr*/)
 {
 	FindByElimination(board);
@@ -576,13 +580,24 @@ bool SolveBoardByRecursion(SBoard board, SBoard* pBoard /*= nullptr*/)
 
 	_iteration++;
 
+	std::random_device rd;
+	std::mt19937 g(rd());
+
 	// Find next free cell
 	for (auto j = 0; j < BOARD_SIZE; j++) {
 		for (auto i = 0; i < BOARD_SIZE; i++) {
 			auto cell = board.GetCell(i, j);
 			if (!cell.IsSolved()) {
-				// For all values, set and solve.
-				for (auto & v : { 1,2,3,4,5,6,7,8,9 }) {
+
+				// Go through all the possible values and see if we have solved
+				// the board.
+				//
+				// NB: Randomly shuffle the order. This is useful if we are generating
+				//     from a blank canvas.
+				std::vector<int> seq{ 1,2,3,4,5,6,7,8,9 };
+				std::shuffle(seq.begin(), seq.end(), g);
+
+				for (auto & v : seq) {
 					SValueEnum testValue = static_cast<SValueEnum>(v);
 					if (board.IsValueValidAt(cell.position, testValue)) {
 						cell.value = testValue;
@@ -595,6 +610,7 @@ bool SolveBoardByRecursion(SBoard board, SBoard* pBoard /*= nullptr*/)
 						}
 					}
 				}
+
 				board.SetCell(cell.position.col, cell.position.row, SCell{});
 
 				// copy solved board 
