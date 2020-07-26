@@ -48,6 +48,11 @@ struct SPos
 		return (col < other.col) || ((!(other.col < col)) && (row < other.row));
 	}
 
+	int GetBoardIndex() {
+		int index = (BOARD_SIZE * row) + col;
+		return index;
+	}
+
 	int row = 0;
 	int col = 0;
 };
@@ -121,6 +126,11 @@ public:
 	*/
 	int GetBlockIndexFrom(int col, int row);
 
+	/*
+	*/
+	std::vector<SPos> GetFreeCells();
+
+	std::vector<SPos> GetSolvedCells();
 
 	/*
 	* Returns the cell information structure
@@ -128,6 +138,11 @@ public:
 	* This must be in the range 0 - 8.
 	*/
 	SCell GetCell(int col, int row);
+
+	/*overload*/
+	SCell GetCell(SPos p) {
+		return GetCell(p.col, p.row);
+	}
 
 	/*
 	* Faster access version ?
@@ -140,6 +155,11 @@ public:
 	* Sets the cell value or state of the given board cell.
 	*/
 	void SetCell(int col, int row, SCell cell);
+
+	/*overload*/
+	void SetCell(SPos p, SCell c) {
+		SetCell(p.col, p.row, c);
+	}
 
 	/*
 	* Clears the entire board with empty values
@@ -179,6 +199,6 @@ protected:
 	* Returns the index within our internal array, given the cell coordinates.
 	* Cells are referred to in columns/rows
 	*/
-	int getCellIndexFrom(int col, int row);
+	int GetCellIndexFrom(int col, int row);
 };
 

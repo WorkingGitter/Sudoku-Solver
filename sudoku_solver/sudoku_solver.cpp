@@ -37,8 +37,9 @@ bool  LoadBoardState(std::wstring source, bool useClipboard = false);
 
 // solving algorithms
 bool FindByElimination(SBoard & board);
-bool SolveBoardByRecursion(SBoard, SBoard* pBoard = nullptr);
+bool SolveBoardByRecursion(SBoard, SBoard* pBoard = nullptr, bool display = true);
 bool SolveBoardByElimination(SBoard &);
+bool ReverseSolve(SBoard&);
 
 /*********************************
 * Main application entry point
@@ -51,11 +52,13 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 
 	// Options
 	// These will be determined from the input parameters
+	bool action_generate         = false;			// generate a new puzzle
 	bool action_create           = false;			// generate blank template layout
 	bool action_solve            = false;			// solve given board (using file or clipboard)
 	bool action_useclipboarddata = false;			// use data in clipboard as source
 	std::wstring param_create    = { L"-c" };		//
 	std::wstring param_solve     = { L"-s" };		//
+	std::wstring param_gen       = { L"-g" };
 	std::wstring filename        = { L"" };			//
 
 	// Loop through all our parameters and set our options variables
@@ -65,10 +68,12 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 
 		bool create = (param_create.compare(argv[n]) == 0);
 		bool solve  = (param_solve.compare(argv[n]) == 0);
+		bool gen = (param_gen.compare(argv[n]) == 0);
 		action_create   |= create;
 		action_solve    |= solve;
+		action_generate |= gen;
 
-		if (!create && !solve) {
+		if (!create && !solve && !gen) {
 			filename = argv[n];
 		}
 	}
@@ -81,7 +86,7 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 	else {
 		// if we supplied a filename, but no action options, then just assume we
 		// want to use that file for a solve.
-		if (!action_create && !action_solve) {
+		if (!action_create && !action_solve && !action_generate) {
 			action_solve = true;
 		}
 	}
@@ -98,6 +103,32 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 		WriteBoardToTextFile(b, filename);
 		DisplayBoardToConsole(b);
 		return 0;
+	}
+
+	// New Puzzle
+	if (action_generate) {
+
+		CConsoleIO console;
+		console.ClearScreen();
+		std::wcout << L"Generating..." << std::endl;
+
+		// Start with a solved board.
+		// It will be initially blank, so no need to use the elimitation process
+		// first.
+		timer t;
+		SBoard board;
+
+		t.start();
+		bool has_solved = SolveBoardByRecursion(SBoard {}, &board, false);
+		assert(has_solved); if (!has_solved) return 1;
+
+		//
+		bool has_finished = ReverseSolve(board);
+
+		// Display to screen
+		t.stop();
+		DisplayBoardToConsole(board);
+		std::wcout << L"Completed in " << t.get_elapsedtime_sec() << L" secs" << std::endl;
 	}
 
 	if (action_solve) {
@@ -166,9 +197,9 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 			console.PopColourAttributes();
 		}
 		else {
-		std::wcout << L"Board has been solved, in ";
-		std::wcout << _iteration << L" attempts" << std::endl;
-	}
+			std::wcout << L"Board has been solved, in ";
+			std::wcout << _iteration << L" attempts" << std::endl;
+		}
 
 		std::wcout << L"Completed in " << t.get_elapsedtime_sec() << L" secs" << std::endl;
 	}
@@ -334,12 +365,13 @@ void PrintHelp()
 	std::wcout << L"Usage:" << std::endl;
 
 	console.SetColourAttributes(FOREGROUND_LIGHTYELLOW);
-	std::wcout << L"  SSolve.exe -c -s <filename.txt>" << std::endl << std::endl;
+	std::wcout << L"  SSolve.exe -g -c -s <filename.txt>" << std::endl << std::endl;
 
 	console.SetColourAttributes(FOREGROUND_WHITE);
 	std::wcout << L"where:" << std::endl;
 
 	console.SetColourAttributes(FOREGROUND_LIGHTYELLOW);
+	std::wcout << L"  -g: Generate a fully valid puzzle" << std::endl;
 	std::wcout << L"  -c: Create blank board layout to given file/screen" << std::endl;
 	std::wcout << L"  -s: Solve using layout in either file or clipboard" << std::endl;
 	std::wcout << L"      If no input file given, the clipboard data will be used" << std::endl;
@@ -564,10 +596,13 @@ bool FindByElimination(SBoard & board)
 /*
 *  
 */
-bool SolveBoardByRecursion(SBoard board, SBoard* pBoard /*= nullptr*/)
+bool SolveBoardByRecursion(SBoard board, SBoard* pBoard /*= nullptr*/, bool display /*= true*/)
 {
 	FindByElimination(board);
-	DisplayBoardToConsole(board);
+
+	if(display)
+		DisplayBoardToConsole(board);
+
 	if (board.IsBoardSolved()) {
 
 		// copy solved board 
@@ -604,7 +639,7 @@ bool SolveBoardByRecursion(SBoard board, SBoard* pBoard /*= nullptr*/)
 						cell.state = SStateEnum::SState_New;
 						board.SetCell(cell.position.col, cell.position.row, cell);
 
-						if (SolveBoardByRecursion(board, pBoard))
+						if (SolveBoardByRecursion(board, pBoard, display))
 						{
 							return true;
 						}
@@ -644,4 +679,55 @@ bool SolveBoardByElimination(SBoard & board)
 		_iteration++;
 	}
 	return is_solved;
+}
+
+/*
+*
+*/
+bool ReverseSolve(SBoard & board)
+{
+	std::random_device rd;
+	std::mt19937 g(rd());
+
+	// compile array of available cells.
+	auto solved_cells = board.GetSolvedCells();
+
+	// shuffle the cells so that we get a random location
+	std::shuffle(std::begin(solved_cells), std::end(solved_cells), g);
+
+	for (auto pos : solved_cells) {
+
+		// Algorithm
+		// If I remove this value from this position, how many other values can
+		// take its place ?
+		// If only one, then go ahead and remove.
+
+		// clear cell and store previous
+		auto prevcell = board.GetCell(pos);
+		board.SetCell(pos, SCell{ SValueEnum::SValue_Empty });
+
+		bool onlyone = true;
+		SValueEnum value_found = SValueEnum::SValue_Empty;
+		for (auto & v : { 1,2,3,4,5,6,7,8,9 }) {
+
+			SValueEnum test_value = static_cast<SValueEnum>(v);
+			if (board.IsValueValidAt(pos, test_value)) {
+				value_found = test_value;
+				if (value_found != prevcell.value)
+					onlyone = false;
+			}
+		}
+
+		//if (!(onlyone && (value_found == prevcell.value)))
+		//{
+		//	assert(false);
+		//	return false;
+		//}
+
+		if(!onlyone) {
+			board.SetCell(pos, prevcell);
+		}
+	}
+
+	return true;
 }

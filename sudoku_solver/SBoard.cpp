@@ -28,7 +28,7 @@ void SBoard::ClearBoard()
 /*
 * Returns the index within the internal board array (m_boarddata).
 */
-int SBoard::getCellIndexFrom(int col, int row) 
+int SBoard::GetCellIndexFrom(int col, int row) 
 {
 	int index = (BOARD_SIZE * row) + col;
 	assert(index < (BOARD_SIZE * BOARD_SIZE));
@@ -61,7 +61,7 @@ SCell SBoard::GetCell(int col, int row)
 	if ((col >= BOARD_SIZE) || (row >= BOARD_SIZE))
 		return SCell();
 
-	return m_boarddata[getCellIndexFrom(col, row)];
+	return m_boarddata[GetCellIndexFrom(col, row)];
 }
 
 void SBoard::SetCell(int col, int row, SCell cell)
@@ -70,7 +70,7 @@ void SBoard::SetCell(int col, int row, SCell cell)
 		return;
 
 	cell.position = SPos{ col,row };
-	m_boarddata[getCellIndexFrom(col, row)] = cell;
+	m_boarddata[cell.position.GetBoardIndex()] = cell;
 }
 
 std::vector<SCell> SBoard::GetBlock(int index)
@@ -149,7 +149,7 @@ bool SBoard::IsValueValidAt(int col, int row, SValueEnum value)
 
 	// Test Column
 	// Here we are moving down the grid.
-	int colindex = getCellIndexFrom(col, 0);
+	int colindex = SPos(col, 0).GetBoardIndex();
 	for (int c = 0; c < BOARD_SIZE; c++) {
 		auto col_value = m_boarddata[colindex].value;
 		if ((col_value != SValueEnum::SValue_Empty) && (col_value == value)) {
@@ -182,13 +182,37 @@ bool SBoard::IsValueValidAt(int col, int row, SValueEnum value)
 */
 int SBoard::GetBlockIndexFrom(int col, int row)
 {
-	int cell_index = getCellIndexFrom(col, row);
+	int cell_index = GetCellIndexFrom(col, row);
 	int block_col = (cell_index / BLOCK_SIZE) % BLOCK_SIZE;
 	int block_row = (cell_index / BOARD_SIZE) / BLOCK_SIZE;
 	int block_index = (block_row * BLOCK_SIZE) + block_col;
 	return block_index;
 }
 
+std::vector<SPos> SBoard::GetFreeCells()
+{
+	std::vector<SPos> vec;
+	for (auto & c : m_boarddata) {
+		if (!c.IsSolved())
+			vec.push_back(c.position);
+	}
+
+	return vec;
+}
+
+
+std::vector<SPos> SBoard::GetSolvedCells()
+{
+	std::vector<SPos> vec;
+	for (auto & c : m_boarddata) {
+		if (c.IsSolved())
+			vec.push_back(c.position);
+	}
+
+	return vec;
+}
+
+// TODO: Optimise and remove GetCol()/GetRow() methods.
 bool SBoard::IsBoardSolved()
 {
 	bool IsRowSolved   = true;
