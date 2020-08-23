@@ -1,21 +1,43 @@
 # Sudoku Solver
 
 A simple, command line app that solves given Sudoku puzzles.
-Written in C++ using Visual Studio 2017.
+Written in C++ using Visual Studio 2017 and 2019.
 
 [![Build status](https://dev.azure.com/RichardChin/GitHub%20Projects/_apis/build/status/GitHub-Sudoku-CI)](https://dev.azure.com/RichardChin/GitHub%20Projects/_build/latest?definitionId=6)
 
-## Instructions
-The state of a given board is submitted to the application via a text file.
-A template of the text file can be generated from the application.
+This uses a combination of elimitation and the backtracking alorithm to solve the puzzle.
 
+## Instructions
+The application can both randomly generate puzzles, as well as solve given boards.
+
+Puzzles to be solved can be supplied in a plain text file, using the notation shown below. 
+Puzzles can also be solved directly from any copied text in the system clipboard.
+
+![](/images/ssolve_example00.png)
+
+**Screenshot Example**
+
+### Help
+```
+Sudoko Solver Alpha 0.0.9
+Usage:
+  SSolve.exe -g -c -s <filename.txt>
+
+where:
+  -g: Generate a fully valid puzzle
+  -c: Create blank board layout to given file/screen
+  -s: Solve using layout in either file or clipboard
+      If no input file given, the clipboard data will be used
+```
+
+### Solve From File
 
 1. Generate a blank template input file using the following command:
 ```
 SSolve.exe -c[reate] <sudoku_template.txt>
 ```
 
-The filename is optional. If none is provided, then one with the default filename will be created.
+The filename is optional. If none is provided, then a defaultwill be created.
 
 2. Fill in the initial board state.
 Fill in the blank cell spaces with the available numbers.
@@ -47,6 +69,15 @@ SSolve.exe -s[olve] "sudoku_template.txt"
 ```
 
 The application will now display the board whilst solving.
+
+### Solve From Clipboard
+
+1. As above, but copy your defined layout to the OS clipboard.
+2. Let the application solve from the clipboard
+Use the following command
+```
+SSolve.exe -s[olve]
+```
 
 ## Remarks
 The format of the input file can be more elaborate, as shown here:
