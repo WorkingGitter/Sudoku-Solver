@@ -5,7 +5,7 @@ Written in C++ using Visual Studio 2017 and 2019.
 
 [![Build status](https://dev.azure.com/RichardChin/GitHub%20Projects/_apis/build/status/GitHub-Sudoku-CI)](https://dev.azure.com/RichardChin/GitHub%20Projects/_build/latest?definitionId=6)
 
-This uses a combination of elimitation and the backtracking alorithm to solve the puzzle.
+This uses a combination of elimination and the backtracking alorithm to solve the puzzle.
 
 ## Instructions
 The application can both randomly generate puzzles, as well as solve given boards.
