@@ -15,7 +15,7 @@
 #include "SBoard.h"
 #include "s_timer.h"
 
-#define BUILD_VERSION L"0.8"
+#define BUILD_VERSION L"Alpha 0.0.9"
 
 #define CELL_COLOUR_FIXED FOREGROUND_WHITE
 #define CELL_COLOUR_SOLVED FOREGROUND_LIGHTYELLOW
