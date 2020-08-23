@@ -169,18 +169,19 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 
 			// display legend
 			auto tc = console.GetColourAttributes();
+			auto backcolour = (tc & 0xF0);
 			console.PushColourAttributes();
-			console.SetColourAttributes(CELL_COLOUR_FIXED);
+			console.SetColourAttributes(CELL_COLOUR_FIXED | backcolour);
 			std::wcout << L"ллл";
 			console.SetColourAttributes(tc);
 			std::wcout << L" : Fixed Numbers" << std::endl;
 
-			console.SetColourAttributes(CELL_COLOUR_SOLVED);
+			console.SetColourAttributes(CELL_COLOUR_SOLVED | backcolour);
 			std::wcout << L"ллл";
 			console.SetColourAttributes(tc);
 			std::wcout << L" : Solved Numbers" << std::endl;
 
-			console.SetColourAttributes(CELL_COLOUR_ATTEMPT);
+			console.SetColourAttributes(CELL_COLOUR_ATTEMPT | backcolour);
 			std::wcout << L"ллл";
 			console.SetColourAttributes(tc);
 			std::wcout << L" : Current Attempts" << std::endl << std::endl;
@@ -233,6 +234,7 @@ void DisplayBoardToConsole(SBoard& board, int indent /*= 0*/)
 	CConsoleIO console;
 	std::wstring dividerline = L"+---+---+---+";
 
+	auto back_colour = console.GetColourAttributes() & 0xF0;
 	console.SetCursorPos(indent, 0);
 
 	for (int line = 0; line < BOARD_SIZE; line++) {
@@ -255,16 +257,16 @@ void DisplayBoardToConsole(SBoard& board, int indent /*= 0*/)
 			// draw value
 			switch (board_line[ncol].state) {
 			case SStateEnum::SState_Fixed:
-				console.SetColourAttributes(CELL_COLOUR_FIXED);
+				console.SetColourAttributes(CELL_COLOUR_FIXED | back_colour);
 				break;
 			case SStateEnum::SState_Solved:
-				console.SetColourAttributes(CELL_COLOUR_SOLVED);
+				console.SetColourAttributes(CELL_COLOUR_SOLVED | back_colour);
 				break;
 			case SStateEnum::SState_New:
-				console.SetColourAttributes(CELL_COLOUR_ATTEMPT);
+				console.SetColourAttributes(CELL_COLOUR_ATTEMPT | back_colour);
 				break;
 			default: 
-				console.SetColourAttributes(CELL_COLOUR_FIXED);
+				console.SetColourAttributes(CELL_COLOUR_FIXED | back_colour);
 				break;				
 			}
 			std::wcout << GetBoardCellDisplayCharacter(board_line[ncol]);
@@ -274,7 +276,6 @@ void DisplayBoardToConsole(SBoard& board, int indent /*= 0*/)
 		std::wcout << L"|" << std::endl;
 		console.SetCursorX(indent);
 	}
-
 	std::wcout << dividerline.c_str() << std::endl;
 }
 
@@ -358,19 +359,23 @@ wchar_t GetBoardCellDisplayCharacter(SCell cell)
 void PrintHelp()
 {
 	CConsoleIO console;
+
+	// get the topmost 4 bits 
+	auto back_colour = console.GetColourAttributes() & 0xF0;
+
 	console.PushColourAttributes();
 
-	console.SetColourAttributes(FOREGROUND_WHITE);
+	console.SetColourAttributes(FOREGROUND_WHITE | back_colour);
 	std::wcout << L"Sudoko Solver " << BUILD_VERSION << std::endl;
 	std::wcout << L"Usage:" << std::endl;
 
-	console.SetColourAttributes(FOREGROUND_LIGHTYELLOW);
+	console.SetColourAttributes(FOREGROUND_LIGHTYELLOW | back_colour);
 	std::wcout << L"  SSolve.exe -g -c -s <filename.txt>" << std::endl << std::endl;
 
-	console.SetColourAttributes(FOREGROUND_WHITE);
+	console.SetColourAttributes(FOREGROUND_WHITE | back_colour);
 	std::wcout << L"where:" << std::endl;
 
-	console.SetColourAttributes(FOREGROUND_LIGHTYELLOW);
+	console.SetColourAttributes(FOREGROUND_LIGHTYELLOW | back_colour);
 	std::wcout << L"  -g: Generate a fully valid puzzle" << std::endl;
 	std::wcout << L"  -c: Create blank board layout to given file/screen" << std::endl;
 	std::wcout << L"  -s: Solve using layout in either file or clipboard" << std::endl;
