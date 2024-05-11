@@ -112,3 +112,10 @@ Or it can be more compact, as follows:
 .7.8..1..
 ```
 The solver will ignore blank lines or separators (those that being with '-' or '+').
+
+# Todo
+- Remove support for VS2017 solution
+- Add unit test
+- Fix any issues
+
+<sup>Updated: May 11th, 2024</sup>
