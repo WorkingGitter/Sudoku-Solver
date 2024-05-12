@@ -236,3 +236,47 @@ bool SBoard::IsBoardSolved()
 
 	return IsRowSolved && IsColSolved && IsBlockSolved;
 }
+
+
+SCell SBoard::CharacterToCell(wchar_t c)
+{
+	SCell cell{ SValueEnum::SValue_Empty, SStateEnum::SState_Fixed };
+
+	switch (c) {
+	case L'1': cell.value = SValueEnum::SValue_1; break;
+	case L'2': cell.value = SValueEnum::SValue_2; break;
+	case L'3': cell.value = SValueEnum::SValue_3; break;
+	case L'4': cell.value = SValueEnum::SValue_4; break;
+	case L'5': cell.value = SValueEnum::SValue_5; break;
+	case L'6': cell.value = SValueEnum::SValue_6; break;
+	case L'7': cell.value = SValueEnum::SValue_7; break;
+	case L'8': cell.value = SValueEnum::SValue_8; break;
+	case L'9': cell.value = SValueEnum::SValue_9; break;
+	default: cell.state = SStateEnum::SState_Free; break;
+	}
+	return cell;
+}
+
+
+wchar_t SBoard::CellToCharacter(SCell cell)
+{
+	wchar_t c{ L' ' };
+
+	switch (cell.value) {
+
+	case SValueEnum::SValue_1: c = L'1'; break;
+	case SValueEnum::SValue_2: c = L'2'; break;
+	case SValueEnum::SValue_3: c = L'3'; break;
+	case SValueEnum::SValue_4: c = L'4'; break;
+	case SValueEnum::SValue_5: c = L'5'; break;
+	case SValueEnum::SValue_6: c = L'6'; break;
+	case SValueEnum::SValue_7: c = L'7'; break;
+	case SValueEnum::SValue_8: c = L'8'; break;
+	case SValueEnum::SValue_9: c = L'9'; break;
+	case SValueEnum::SValue_Empty: c = L'.';
+	default:
+		break;
+	}
+
+	return c;
+}

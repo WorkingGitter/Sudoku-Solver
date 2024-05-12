@@ -12,10 +12,10 @@
 #include <map>
 #include <set>
 #include "ConsoleIO.h"
-#include "SBoard.h"
+#include "SudokuSolver.h"
 #include "s_timer.h"
 
-#define BUILD_VERSION L"Alpha 0.0.9"
+#define BUILD_VERSION L"Alpha 0.1.0"
 
 #define CELL_COLOUR_FIXED FOREGROUND_WHITE
 #define CELL_COLOUR_SOLVED FOREGROUND_LIGHTYELLOW
@@ -23,23 +23,16 @@
 
 // global puzzle board
 SBoard sboard;
+SudokuSolver solver;
 
 // iteration or moves in solve
 int _iteration = 0;
 
-void   PrintHelp();
+void    PrintHelp();
 void    DisplayBoardToConsole(SBoard &, int indent = 0);
 void    WriteBoardToTextFile(SBoard board, std::wstring filename);
-wchar_t GetBoardCellDisplayCharacter(SCell);
+bool    LoadBoardState(std::wstring source, bool useClipboard = false);
 
-SCell GetBoardCellFrom(wchar_t c);
-bool  LoadBoardState(std::wstring source, bool useClipboard = false);
-
-// solving algorithms
-bool FindByElimination(SBoard & board);
-bool SolveBoardByRecursion(SBoard, SBoard* pBoard = nullptr, bool display = true);
-bool SolveBoardByElimination(SBoard &);
-bool ReverseSolve(SBoard&);
 
 /*********************************
 * Main application entry point
@@ -119,11 +112,11 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 		SBoard board;
 
 		t.start();
-		bool has_solved = SolveBoardByRecursion(SBoard {}, &board, false);
+		bool has_solved = solver.SolveBoardByRecursion(SBoard {}, &board, _iteration);
 		assert(has_solved); if (!has_solved) return 1;
 
 		//
-		bool has_finished = ReverseSolve(board);
+		bool has_finished = solver.ReverseSolve(board);
 
 		// Display to screen
 		t.stop();
@@ -149,13 +142,13 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 		SBoard unsolved_board(sboard);
 		SBoard solved_board;
 
-		bool has_solved = SolveBoardByElimination(sboard);
+		bool has_solved = solver.SolveBoardByElimination(sboard, _iteration);
 
 		if (has_solved) {
 			solved_board = sboard;
 		}
 		else {
-			has_solved = SolveBoardByRecursion(sboard, &solved_board);
+			has_solved = solver.SolveBoardByRecursion(sboard, &solved_board, _iteration);
 		}
 
 		t.stop();
@@ -269,7 +262,7 @@ void DisplayBoardToConsole(SBoard& board, int indent /*= 0*/)
 				console.SetColourAttributes(CELL_COLOUR_FIXED | back_colour);
 				break;				
 			}
-			std::wcout << GetBoardCellDisplayCharacter(board_line[ncol]);
+			std::wcout << SBoard::CellToCharacter(board_line[ncol]);
 		}
 
 		console.PopColourAttributes();
@@ -306,19 +299,19 @@ void WriteBoardToTextFile(SBoard board, std::wstring filename)
 			ss << dividerline.c_str() << std::endl;
 		}
 
-		ss  << GetBoardCellDisplayCharacter(board_line[0])
-			<< GetBoardCellDisplayCharacter(board_line[1])
-			<< GetBoardCellDisplayCharacter(board_line[2]);
+		ss  << SBoard::CellToCharacter(board_line[0])
+			<< SBoard::CellToCharacter(board_line[1])
+			<< SBoard::CellToCharacter(board_line[2]);
 
 		ss << L"|"
-			<< GetBoardCellDisplayCharacter(board_line[3])
-			<< GetBoardCellDisplayCharacter(board_line[4])
-			<< GetBoardCellDisplayCharacter(board_line[5]);
+			<< SBoard::CellToCharacter(board_line[3])
+			<< SBoard::CellToCharacter(board_line[4])
+			<< SBoard::CellToCharacter(board_line[5]);
 
 		ss << L"|"
-			<< GetBoardCellDisplayCharacter(board_line[6])
-			<< GetBoardCellDisplayCharacter(board_line[7])
-			<< GetBoardCellDisplayCharacter(board_line[8])
+			<< SBoard::CellToCharacter(board_line[6])
+			<< SBoard::CellToCharacter(board_line[7])
+			<< SBoard::CellToCharacter(board_line[8])
 			<< std::endl;
 	}
 	ss << std::endl;
@@ -326,32 +319,6 @@ void WriteBoardToTextFile(SBoard board, std::wstring filename)
 	outfile.close();
 }
 
-/*
-* Returns the character representation of the given 
-* board cell.
-*/
-wchar_t GetBoardCellDisplayCharacter(SCell cell) 
-{
-	wchar_t c{ (TCHAR)' ' };
-
-	switch (cell.value) {
-
-	case SValueEnum::SValue_1: c = L'1'; break;
-	case SValueEnum::SValue_2: c = L'2'; break;
-	case SValueEnum::SValue_3: c = L'3'; break;
-	case SValueEnum::SValue_4: c = L'4'; break;
-	case SValueEnum::SValue_5: c = L'5'; break;
-	case SValueEnum::SValue_6: c = L'6'; break;
-	case SValueEnum::SValue_7: c = L'7'; break;
-	case SValueEnum::SValue_8: c = L'8'; break;
-	case SValueEnum::SValue_9: c = L'9'; break;
-	case SValueEnum::SValue_Empty: c = L'.';
-	default:
-		break;
-	}
-
-	return c;
-}
 
 /*************************************************
 * Displayed if no parameters provided by the user.
@@ -496,7 +463,7 @@ bool LoadBoardState(std::wstring source, bool useClipboard /*= false*/)
 			if ((c == L'|'))
 				continue;
 
-			sboard.SetCell(col, row, GetBoardCellFrom(c));
+			sboard.SetCell(col, row, SBoard::CharacterToCell(c));
 			col++;
 
 			// skip if we have enough
@@ -513,225 +480,6 @@ bool LoadBoardState(std::wstring source, bool useClipboard /*= false*/)
 
 		if (row > BOARD_SIZE)
 			break;
-	}
-
-	return true;
-}
-
-SCell GetBoardCellFrom(wchar_t c)
-{
-	SCell cell{ SValueEnum::SValue_Empty, SStateEnum::SState_Fixed };
-
-	switch (c) {
-	case L'1': cell.value = SValueEnum::SValue_1; break;
-	case L'2': cell.value = SValueEnum::SValue_2; break;
-	case L'3': cell.value = SValueEnum::SValue_3; break;
-	case L'4': cell.value = SValueEnum::SValue_4; break;
-	case L'5': cell.value = SValueEnum::SValue_5; break;
-	case L'6': cell.value = SValueEnum::SValue_6; break;
-	case L'7': cell.value = SValueEnum::SValue_7; break;
-	case L'8': cell.value = SValueEnum::SValue_8; break;
-	case L'9': cell.value = SValueEnum::SValue_9; break;
-	default: cell.state = SStateEnum::SState_Free; break;
-	}
-	return cell;
-}
-
-/*
-* Finds values for cells through a process of eliminating all other possibilities.
-* Return true if any addition to the board has been made.
-*/
-bool FindByElimination(SBoard & board) 
-{
-	// Stores: (value within a block) => [set of cell coord]
-	using ValueLookupMap = std::map< SValueEnum, std::set<SPos> >;
-
-	// For each block on our board, we will monitor the free cells.
-	// Keeping a list of all valid values for each cell (within a block).
-	// Each block stores: [value] => {valid cells list}
-	std::vector< ValueLookupMap > openBlocks(BOARD_SIZE);
-
-	for (auto nblock : { 0,1,2,3,4,5,6,7,8 }) {
-
-		int start_column = (nblock % BLOCK_SIZE) * BLOCK_SIZE;
-		int start_row = (nblock / BLOCK_SIZE) * BLOCK_SIZE;
-		int bindex = (start_row * BOARD_SIZE) + start_column;
-
-		for (int r = 0; r < BLOCK_SIZE; r++) {
-			for (int c = 0; c < BLOCK_SIZE; c++) {
-
-				int block_index = (r * BOARD_SIZE) + c + bindex;
-				auto & cell = board.GetCellDirect(block_index);
-				if (cell.IsSolved())
-					continue;
-
-				// If any of the values are valid for this cell, then add to 
-				// collection
-				for (auto & v : { 1,2,3,4,5,6,7,8,9 }) {
-
-					SValueEnum testValue = static_cast<SValueEnum>(v);
-					if (board.IsValueValidAt(cell.position, testValue)) {
-
-						auto it = openBlocks[nblock].insert({ testValue, {} });
-						it.first->second.insert(cell.position);
-
-					}
-				}
-			}
-		}
-	}
-
-	// Check for any definitive solution
-	bool aSolutionFound = false;
-	for (auto & block : openBlocks) {
-		for (auto & validvalues : block) {
-			if (validvalues.second.size() == 1) {
-				board.SetCell(
-					validvalues.second.begin()->col,
-					validvalues.second.begin()->row,
-					{ validvalues.first, SStateEnum::SState_Solved }	// value/state
-				);
-				aSolutionFound = true;
-			}
-		}
-	}
-	return aSolutionFound;
-}
-
-/*
-*  
-*/
-bool SolveBoardByRecursion(SBoard board, SBoard* pBoard /*= nullptr*/, bool display /*= true*/)
-{
-	FindByElimination(board);
-
-	if(display)
-		DisplayBoardToConsole(board);
-
-	if (board.IsBoardSolved()) {
-
-		// copy solved board 
-		if (pBoard != nullptr) {
-			*pBoard = board;
-		}
-
-		return true;
-	}
-
-	_iteration++;
-
-	std::random_device rd;
-	std::mt19937 g(rd());
-
-	// Find next free cell
-	for (auto j = 0; j < BOARD_SIZE; j++) {
-		for (auto i = 0; i < BOARD_SIZE; i++) {
-			auto cell = board.GetCell(i, j);
-			if (!cell.IsSolved()) {
-
-				// Go through all the possible values and see if we have solved
-				// the board.
-				//
-				// NB: Randomly shuffle the order. This is useful if we are generating
-				//     from a blank canvas.
-				std::vector<int> seq{ 1,2,3,4,5,6,7,8,9 };
-				std::shuffle(seq.begin(), seq.end(), g);
-
-				for (auto & v : seq) {
-					SValueEnum testValue = static_cast<SValueEnum>(v);
-					if (board.IsValueValidAt(cell.position, testValue)) {
-						cell.value = testValue;
-						cell.state = SStateEnum::SState_New;
-						board.SetCell(cell.position.col, cell.position.row, cell);
-
-						if (SolveBoardByRecursion(board, pBoard, display))
-						{
-							return true;
-						}
-					}
-				}
-
-				board.SetCell(cell.position.col, cell.position.row, SCell{});
-
-				// copy solved board 
-				if (pBoard != nullptr) {
-					*pBoard = board;
-				}
-
-				return false;
-			}
-		}
-	}
-	return false;
-}
-
-/*
-*/
-bool SolveBoardByElimination(SBoard & board)
-{
-	DisplayBoardToConsole(board);
-	bool is_solved = false;
-
-	while (!is_solved) {
-		bool boardHasChanged = FindByElimination(board);
-		is_solved = board.IsBoardSolved();
-
-		// Give up if we are stuck.
-		if (!is_solved && !boardHasChanged)
-			break;
-
-		DisplayBoardToConsole(board);
-		_iteration++;
-	}
-	return is_solved;
-}
-
-/*
-*
-*/
-bool ReverseSolve(SBoard & board)
-{
-	std::random_device rd;
-	std::mt19937 g(rd());
-
-	// compile array of available cells.
-	auto solved_cells = board.GetSolvedCells();
-
-	// shuffle the cells so that we get a random location
-	std::shuffle(std::begin(solved_cells), std::end(solved_cells), g);
-
-	for (auto pos : solved_cells) {
-
-		// Algorithm
-		// If I remove this value from this position, how many other values can
-		// take its place ?
-		// If only one, then go ahead and remove.
-
-		// clear cell and store previous
-		auto prevcell = board.GetCell(pos);
-		board.SetCell(pos, SCell{ SValueEnum::SValue_Empty });
-
-		bool onlyone = true;
-		SValueEnum value_found = SValueEnum::SValue_Empty;
-		for (auto & v : { 1,2,3,4,5,6,7,8,9 }) {
-
-			SValueEnum test_value = static_cast<SValueEnum>(v);
-			if (board.IsValueValidAt(pos, test_value)) {
-				value_found = test_value;
-				if (value_found != prevcell.value)
-					onlyone = false;
-			}
-		}
-
-		//if (!(onlyone && (value_found == prevcell.value)))
-		//{
-		//	assert(false);
-		//	return false;
-		//}
-
-		if(!onlyone) {
-			board.SetCell(pos, prevcell);
-		}
 	}
 
 	return true;

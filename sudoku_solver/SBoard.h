@@ -3,6 +3,7 @@
 * Date   : July 2020
 * =======================================*/
 #pragma once
+
 #include <vector>
 #include <set>
 
@@ -12,9 +13,8 @@
 // The size of each sub-blocks
 #define BLOCK_SIZE (BOARD_SIZE / 3)
 
-/*******************************
-* Integer value of a sudoko cell
-********************************/
+/*!	\brief Integer value of a sudoko cell
+*/
 enum class SValueEnum {
 	SValue_Empty = 0,
 	SValue_1 = 1,
@@ -28,8 +28,6 @@ enum class SValueEnum {
 	SValue_9 = 9,
 };
 
-/*
-*/
 enum class SStateEnum {
 	SState_Fixed,		// Cannot be changed.
 	SState_Solved,		// Originally free, but now solved.
@@ -37,8 +35,7 @@ enum class SStateEnum {
 	SState_Free			// Not solved, free to change.
 };
 
-/*
-* Encapsulates the position of a cell
+/*!	\brief Encapsulates the position of a cell
 */
 struct SPos 
 {
@@ -57,10 +54,12 @@ struct SPos
 	int col = 0;
 };
 
-/*
+/*!	\brief Encapsulates the cell information
+* 
 * Each cell will have a 'state'.
 * This includes any indicated value, but could also store if the current value
 * was from the user, or have been calculated.
+* 
 */
 struct SCell 
 {
@@ -79,9 +78,11 @@ public:
 	}
 };
 
-/******************************************
-* Encapsulates the sudoko board
-*******************************************/
+/*!	\brief Encapsulates a sudoko board
+* 
+*   The algorithm to solve the board is
+*   kept in `SudokuSolver`.
+*/
 class SBoard
 {
 public:
@@ -120,14 +121,13 @@ public:
 	*/
 	std::vector<SCell> GetBlock(int);
 
-	/*
-	* Returns the block index from the cell coordinates
-	* see: GetBlock()
+	/*!	\brief Returns the block index from the cell coordinates
+	* 
+	*	
+	*	\see: GetBlock()
 	*/
 	int GetBlockIndexFrom(int col, int row);
 
-	/*
-	*/
 	std::vector<SPos> GetFreeCells();
 
 	std::vector<SPos> GetSolvedCells();
@@ -191,6 +191,21 @@ public:
 	* Performs a test on the entire board in its current state for completeness.
 	*/
 	bool IsBoardSolved();
+
+	/*!	\brief Returns the visual character to represent given cell state
+	* 
+	*	\return A valid representation of a given board cell.
+	*			Valid values are '1' - '9' for the numbers, and '.' for empty cells.
+	*/
+	static wchar_t CellToCharacter(SCell);
+
+	/*!	\brief returns the board cell representation from the given character
+	*	
+	*	\param c - A valid board cell character, as defined in `CellToCharacter()`
+	*	\return SCell
+	*/
+	static SCell CharacterToCell(wchar_t c);
+
 
 protected:
 	std::vector<SCell> m_boarddata;
