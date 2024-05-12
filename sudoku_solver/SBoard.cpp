@@ -28,7 +28,7 @@ void SBoard::ClearBoard()
 /*
 * Returns the index within the internal board array (m_boarddata).
 */
-int SBoard::GetCellIndexFrom(int col, int row) 
+int SBoard::GetCellIndexFrom(int col, int row) const
 {
 	int index = (BOARD_SIZE * row) + col;
 	assert(index < (BOARD_SIZE * BOARD_SIZE));
@@ -38,7 +38,7 @@ int SBoard::GetCellIndexFrom(int col, int row)
 
 /*
 */
-std::vector<SCell> SBoard::GetRow(int r)
+std::vector<SCell> SBoard::GetRow(int r) const
 {
 	std::vector<SCell> v;
 	for (auto c = 0; c < BOARD_SIZE; c++) {
@@ -47,7 +47,7 @@ std::vector<SCell> SBoard::GetRow(int r)
 	return v;
 }
 
-std::vector<SCell> SBoard::GetCol(int c)
+std::vector<SCell> SBoard::GetCol(int c) const
 {
 	std::vector<SCell> v;
 	for (auto r = 0; r < BOARD_SIZE; r++) {
@@ -56,7 +56,7 @@ std::vector<SCell> SBoard::GetCol(int c)
 	return v;
 }
 
-SCell SBoard::GetCell(int col, int row)
+SCell SBoard::GetCell(int col, int row) const
 {
 	if ((col >= BOARD_SIZE) || (row >= BOARD_SIZE))
 		return SCell();
@@ -73,7 +73,7 @@ void SBoard::SetCell(int col, int row, SCell cell)
 	m_boarddata[cell.position.GetBoardIndex()] = cell;
 }
 
-std::vector<SCell> SBoard::GetBlock(int index)
+std::vector<SCell> SBoard::GetBlock(int index) const
 {
 	std::vector<SCell> vec;
 
@@ -92,7 +92,7 @@ std::vector<SCell> SBoard::GetBlock(int index)
 /*
 * Checks the 'solved' state of this line of cells.
 */
-bool SBoard::IsSolved(std::vector<SCell>& vec)
+bool SBoard::IsSolved(std::vector<SCell>& vec) const
 {
 	if (vec.size() != BOARD_SIZE)
 		return false;
@@ -102,9 +102,20 @@ bool SBoard::IsSolved(std::vector<SCell>& vec)
 	if (!filled)
 		return false;
 
-	// Checks to ensure that all numbers are unique.
-	bool unique = (std::unique(vec.begin(), vec.end(), [](SCell a, SCell b) { return (a.value == b.value); }) == vec.end());
-	return unique;
+    // Checks to ensure that all numbers are unique.
+    bool unique = true;
+    std::set<SValueEnum> valueSet;
+    
+	for (const auto& cell : vec) 
+	{
+       auto itF = valueSet.insert(cell.value);
+	   if (!itF.second) {
+		   unique = false;
+		   break;
+	   }
+    }
+
+    return unique;
 }
 
 /*
@@ -113,7 +124,7 @@ bool SBoard::IsSolved(std::vector<SCell>& vec)
 *
 * Validity at this time only checks for dulicates.
 */
-bool SBoard::IsValid(std::vector<SCell>& vec)
+bool SBoard::IsValid(std::vector<SCell>& vec) const
 {
 	std::set<SValueEnum> numset;
 	for (auto & c : vec) {
@@ -132,7 +143,7 @@ bool SBoard::IsValid(std::vector<SCell>& vec)
 /*
 * Test to see if the given value can be safely inserted at this cell
 */
-bool SBoard::IsValueValidAt(int col, int row, SValueEnum value)
+bool SBoard::IsValueValidAt(int col, int row, SValueEnum value) const
 {
 	bool isvalid = true;
 
@@ -180,7 +191,7 @@ bool SBoard::IsValueValidAt(int col, int row, SValueEnum value)
 /*
 * Returns the index of the block for the given cell
 */
-int SBoard::GetBlockIndexFrom(int col, int row)
+int SBoard::GetBlockIndexFrom(int col, int row) const
 {
 	int cell_index = GetCellIndexFrom(col, row);
 	int block_col = (cell_index / BLOCK_SIZE) % BLOCK_SIZE;
@@ -213,7 +224,7 @@ std::vector<SPos> SBoard::GetSolvedCells()
 }
 
 // TODO: Optimise and remove GetCol()/GetRow() methods.
-bool SBoard::IsBoardSolved()
+bool SBoard::IsBoardSolved() const
 {
 	bool IsRowSolved   = true;
 	bool IsColSolved   = true;
@@ -225,14 +236,58 @@ bool SBoard::IsBoardSolved()
 	}
 
 	for (auto row = 0; row < BOARD_SIZE; row++) {
-		auto row_vec = GetCol(row);
+		auto row_vec = GetRow(row);
 		IsRowSolved &= IsSolved(row_vec);
 	}
 
 	for (auto b : { 0,1,2,3,4,5,6,7,8 }) {
-		auto block_vec = GetCol(b);
+		auto block_vec = GetBlock(b);
 		IsBlockSolved &= IsSolved(block_vec);
 	}
 
 	return IsRowSolved && IsColSolved && IsBlockSolved;
+}
+
+
+SCell SBoard::CharacterToCell(wchar_t c)
+{
+	SCell cell{ SValueEnum::SValue_Empty, SStateEnum::SState_Fixed };
+
+	switch (c) {
+	case L'1': cell.value = SValueEnum::SValue_1; break;
+	case L'2': cell.value = SValueEnum::SValue_2; break;
+	case L'3': cell.value = SValueEnum::SValue_3; break;
+	case L'4': cell.value = SValueEnum::SValue_4; break;
+	case L'5': cell.value = SValueEnum::SValue_5; break;
+	case L'6': cell.value = SValueEnum::SValue_6; break;
+	case L'7': cell.value = SValueEnum::SValue_7; break;
+	case L'8': cell.value = SValueEnum::SValue_8; break;
+	case L'9': cell.value = SValueEnum::SValue_9; break;
+	default: cell.state = SStateEnum::SState_Free; break;
+	}
+	return cell;
+}
+
+
+wchar_t SBoard::CellToCharacter(SCell cell)
+{
+	wchar_t c{ L' ' };
+
+	switch (cell.value) {
+
+	case SValueEnum::SValue_1: c = L'1'; break;
+	case SValueEnum::SValue_2: c = L'2'; break;
+	case SValueEnum::SValue_3: c = L'3'; break;
+	case SValueEnum::SValue_4: c = L'4'; break;
+	case SValueEnum::SValue_5: c = L'5'; break;
+	case SValueEnum::SValue_6: c = L'6'; break;
+	case SValueEnum::SValue_7: c = L'7'; break;
+	case SValueEnum::SValue_8: c = L'8'; break;
+	case SValueEnum::SValue_9: c = L'9'; break;
+	case SValueEnum::SValue_Empty: c = L'0';
+	default:
+		break;
+	}
+
+	return c;
 }

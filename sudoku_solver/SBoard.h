@@ -3,6 +3,7 @@
 * Date   : July 2020
 * =======================================*/
 #pragma once
+
 #include <vector>
 #include <set>
 
@@ -12,9 +13,8 @@
 // The size of each sub-blocks
 #define BLOCK_SIZE (BOARD_SIZE / 3)
 
-/*******************************
-* Integer value of a sudoko cell
-********************************/
+/*!	\brief Integer value of a sudoko cell
+*/
 enum class SValueEnum {
 	SValue_Empty = 0,
 	SValue_1 = 1,
@@ -28,8 +28,6 @@ enum class SValueEnum {
 	SValue_9 = 9,
 };
 
-/*
-*/
 enum class SStateEnum {
 	SState_Fixed,		// Cannot be changed.
 	SState_Solved,		// Originally free, but now solved.
@@ -37,8 +35,7 @@ enum class SStateEnum {
 	SState_Free			// Not solved, free to change.
 };
 
-/*
-* Encapsulates the position of a cell
+/*!	\brief Encapsulates the position of a cell
 */
 struct SPos 
 {
@@ -57,31 +54,59 @@ struct SPos
 	int col = 0;
 };
 
-/*
+/*!	\brief Encapsulates the cell information
+* 
 * Each cell will have a 'state'.
 * This includes any indicated value, but could also store if the current value
 * was from the user, or have been calculated.
+* 
 */
 struct SCell 
 {
 public:
-	SCell(SValueEnum v = SValueEnum::SValue_Empty, SStateEnum s = SStateEnum::SState_Free)
-		: value(v), state(s)
-	{
+	SCell() {
+		position = SPos(0, 0);
+		value = SValueEnum::SValue_Empty;
+		state = SStateEnum::SState_Free;
 	}
 
-	SPos position;
-	SValueEnum value;
-	SStateEnum state;
+	SCell(SValueEnum v, SStateEnum s = SStateEnum::SState_Free)
+		: position{}, value(v), state(s)
+	{
+	}
+	~SCell() = default;
 
-	bool IsSolved() {
+	// copy constructor
+	SCell(const SCell& other) {
+		position = other.position;
+		value = other.value;
+		state = other.state;
+	}	
+
+	// assignment operator
+	SCell& operator=(const SCell& other) {
+		if (this != &other) {
+			position = other.position;
+			value = other.value;
+			state = other.state;
+		}
+		return *this;
+	}
+
+	SPos position = SPos(0, 0);
+	SValueEnum value = SValueEnum::SValue_Empty;
+	SStateEnum state = SStateEnum::SState_Free;
+
+	[[nodiscard]] bool IsSolved() const {
 		return (state != SStateEnum::SState_Free);
 	}
 };
 
-/******************************************
-* Encapsulates the sudoko board
-*******************************************/
+/*!	\brief Encapsulates a sudoko board
+* 
+*   The algorithm to solve the board is
+*   kept in `SudokuSolver`.
+*/
 class SBoard
 {
 public:
@@ -89,10 +114,10 @@ public:
 	SBoard();
 
 	// Returns the array of cells for board row
-	std::vector<SCell> GetRow(int);
+	std::vector<SCell> GetRow(int) const;
 
 	// Returns the array of cells for board row
-	std::vector<SCell> GetCol(int);
+	std::vector<SCell> GetCol(int) const;
 
 	/*
 	* Returns the 3x3 blocks of the sudoku board as an array of cells.
@@ -118,16 +143,15 @@ public:
 	* {9,6,5,4,1,8,7,2,3}
 	*
 	*/
-	std::vector<SCell> GetBlock(int);
+	std::vector<SCell> GetBlock(int) const;
 
-	/*
-	* Returns the block index from the cell coordinates
-	* see: GetBlock()
+	/*!	\brief Returns the block index from the cell coordinates
+	* 
+	*	
+	*	\see: GetBlock()
 	*/
-	int GetBlockIndexFrom(int col, int row);
+	int GetBlockIndexFrom(int col, int row) const;
 
-	/*
-	*/
 	std::vector<SPos> GetFreeCells();
 
 	std::vector<SPos> GetSolvedCells();
@@ -137,10 +161,10 @@ public:
 	* col and row are the zero-based index of the board cell.
 	* This must be in the range 0 - 8.
 	*/
-	SCell GetCell(int col, int row);
+	SCell GetCell(int col, int row) const;
 
 	/*overload*/
-	SCell GetCell(SPos p) {
+	SCell GetCell(SPos p) const {
 		return GetCell(p.col, p.row);
 	}
 
@@ -169,28 +193,43 @@ public:
 	/*
 	* Tests if given array of cells has all the numbers present
 	*/
-	bool IsSolved(std::vector<SCell>&);
+    [[nodiscard]] bool IsSolved(std::vector<SCell>& cells) const;
 
 	/*
 	* Validate given array of cells
 	* Tests for duplicates. Ignores empty cells.
 	*/
-	bool IsValid(std::vector<SCell>&);
+	[[nodiscard]] bool IsValid(std::vector<SCell>&) const;
 
 	/*
 	* Test to see if given value can be placed at the given cell
 	*/
-	bool IsValueValidAt(int col, int row, SValueEnum value);
+	[[nodiscard]] bool IsValueValidAt(int col, int row, SValueEnum value) const;
 
 	/* Overloaded function */
-	bool IsValueValidAt(SPos pos, SValueEnum value) {
+	[[nodiscard]] bool IsValueValidAt(SPos pos, SValueEnum value) const {
 		return IsValueValidAt(pos.col, pos.row, value);
 	}
 
 	/*
 	* Performs a test on the entire board in its current state for completeness.
 	*/
-	bool IsBoardSolved();
+	bool IsBoardSolved() const;
+
+	/*!	\brief Returns the visual character to represent given cell state
+	* 
+	*	\return A valid representation of a given board cell.
+	*			Valid values are '1' - '9' for the numbers, and '.' for empty cells.
+	*/
+	static wchar_t CellToCharacter(SCell);
+
+	/*!	\brief returns the board cell representation from the given character
+	*	
+	*	\param c - A valid board cell character, as defined in `CellToCharacter()`
+	*	\return SCell
+	*/
+	static SCell CharacterToCell(wchar_t c);
+
 
 protected:
 	std::vector<SCell> m_boarddata;
@@ -199,6 +238,6 @@ protected:
 	* Returns the index within our internal array, given the cell coordinates.
 	* Cells are referred to in columns/rows
 	*/
-	int GetCellIndexFrom(int col, int row);
+	[[nodiscard]] int GetCellIndexFrom(int col, int row) const;
 };
 
