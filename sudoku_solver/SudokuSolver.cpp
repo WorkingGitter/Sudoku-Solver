@@ -197,3 +197,51 @@ bool SudokuSolver::ReverseSolve(SBoard& board)
 
 	return true;
 }
+
+bool SudokuSolver::Solve(SBoard& board, SBoard* board_ptr, int& steps)
+{
+	bool has_solved = SolveBoardByElimination(board, steps);
+
+	if (has_solved && board_ptr) {
+		*board_ptr = board;
+	}
+	else {
+		has_solved = SolveBoardByRecursion(board, board_ptr, steps);
+	}
+
+	return has_solved;
+}
+
+bool SudokuSolver::LoadBoardFromStringLayout(SBoard& board, const std::wstring& layout)
+{
+	if (layout.size() != BOARD_SIZE * BOARD_SIZE)
+		return false;
+
+	for (auto rowIndex = 0; rowIndex < BOARD_SIZE; rowIndex++) {
+		for (auto columnIndex = 0; columnIndex < BOARD_SIZE; columnIndex++) {
+			auto cell = layout[rowIndex * BOARD_SIZE + columnIndex];
+			if (cell == L'.' || cell == L' ' || cell == L'0') {
+				board.SetCell(columnIndex, rowIndex, SCell{ SValueEnum::SValue_Empty });
+			}
+			else {
+				board.SetCell(columnIndex, rowIndex, SBoard::CharacterToCell(cell));
+			}
+		}
+	}
+
+	return true;
+}
+
+std::wstring SudokuSolver::GetBoardAsStringLayout(const SBoard& board)
+{
+	// This does the opposite of LoadBoardFromStringLayout.
+	// Returns the board as an array of string.
+	std::wstring layout;
+	for (auto rowIndex = 0; rowIndex < BOARD_SIZE; rowIndex++) {
+		for (auto columnIndex = 0; columnIndex < BOARD_SIZE; columnIndex++) {
+			auto cell = board.GetCell(columnIndex, rowIndex);
+			layout.push_back(SBoard::CellToCharacter(cell));
+		}
+	}
+	return layout;
+}

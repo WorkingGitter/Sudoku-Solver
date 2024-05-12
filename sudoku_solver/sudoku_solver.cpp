@@ -142,12 +142,14 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 		SBoard unsolved_board(sboard);
 		SBoard solved_board;
 
+		bool uses_recursion = false;
 		bool has_solved = solver.SolveBoardByElimination(sboard, _iteration);
 
 		if (has_solved) {
 			solved_board = sboard;
 		}
 		else {
+			uses_recursion = true;
 			has_solved = solver.SolveBoardByRecursion(sboard, &solved_board, _iteration);
 		}
 
@@ -158,13 +160,15 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 			CConsoleIO console;
 			console.ClearScreen();
 			DisplayBoardToConsole(unsolved_board, 0);
-			DisplayBoardToConsole(solved_board, 15);
+			DisplayBoardToConsole(sboard, 25);
+			DisplayBoardToConsole(solved_board, 50);
 
 			// display legend
 			auto tc = console.GetColourAttributes();
 			auto backcolour = (tc & 0xF0);
 			console.PushColourAttributes();
 			console.SetColourAttributes(CELL_COLOUR_FIXED | backcolour);
+			std::wcout << std::endl;
 			std::wcout << L"ллл";
 			console.SetColourAttributes(tc);
 			std::wcout << L" : Fixed Numbers" << std::endl;
@@ -187,15 +191,25 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 			console.PushColourAttributes();
 			console.SetColourAttributes(FOREGROUND_LIGHTRED);
 			std::wcerr << L"Failed to solve given board, in ";
-			std::wcout << _iteration << L" attempts" << std::endl;
+			std::wcout << _iteration << L" attempts";
 			console.PopColourAttributes();
 		}
-		else {
+		else 
+		{
 			std::wcout << L"Board has been solved, in ";
-			std::wcout << _iteration << L" attempts" << std::endl;
+			std::wcout << _iteration << L" attempts";
 		}
 
-		std::wcout << L"Completed in " << t.get_elapsedtime_sec() << L" secs" << std::endl;
+		if (uses_recursion) {
+			CConsoleIO console;
+			console.PushColourAttributes();
+			console.SetColourAttributes(FOREGROUND_YELLOW | FOREGROUND_RED);
+			std::wcout << L" (recursion used)";
+			console.PopColourAttributes();
+		}
+
+		std::wcout << std::endl;
+		std::wcout << L"Completed in " << t.get_elapsedtime_sec() << L" secs\n\n";
 	}
 
 	return 0;
@@ -225,7 +239,7 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 void DisplayBoardToConsole(SBoard& board, int indent /*= 0*/)
 {
 	CConsoleIO console;
-	std::wstring dividerline = L"+---+---+---+";
+	std::wstring dividerline = L"-------|-------|-------";
 
 	auto back_colour = console.GetColourAttributes() & 0xF0;
 	console.SetCursorPos(indent, 0);
@@ -234,17 +248,21 @@ void DisplayBoardToConsole(SBoard& board, int indent /*= 0*/)
 
 		auto board_line = board.GetRow(line);
 
-		if ((line % 3) == 0) {
+		if ((line == 3) || (line == 6)) {
 			std::wcout << dividerline.c_str() << std::endl;
+		}
+
+		if ((line % 3) == 0) {
 			console.SetCursorX(indent);
 		}
+
 
 		console.PushColourAttributes();
 		for (auto ncol = 0; ncol < 9; ncol++) {
 
 			// draw vertical separator
-			if ((ncol % 3) == 0) {
-				std::wcout << L"|";
+			if ((ncol == 3) || (ncol == 6) ) {
+				std::wcout << L" |";
 			}
 
 			// draw value
@@ -262,14 +280,18 @@ void DisplayBoardToConsole(SBoard& board, int indent /*= 0*/)
 				console.SetColourAttributes(CELL_COLOUR_FIXED | back_colour);
 				break;				
 			}
-			std::wcout << SBoard::CellToCharacter(board_line[ncol]);
+
+			auto cellvalue = SBoard::CellToCharacter(board_line[ncol]);
+			if(cellvalue == L'0')
+				cellvalue = L'.';
+
+			std::wcout << L" " << cellvalue;
 		}
 
 		console.PopColourAttributes();
-		std::wcout << L"|" << std::endl;
+		std::wcout << std::endl;
 		console.SetCursorX(indent);
 	}
-	std::wcout << dividerline.c_str() << std::endl;
 }
 
 /*
@@ -390,9 +412,7 @@ void PrintHelp()
 *******************************************************************************/
 bool LoadBoardState(std::wstring source, bool useClipboard /*= false*/)
 {
-	// load the input file into a vector array
-	std::vector<std::wstring> linevec;
-	linevec.reserve(16);
+	std::wstring layout_str = L"";
 
 	if (useClipboard) {
 
@@ -413,7 +433,7 @@ bool LoadBoardState(std::wstring source, bool useClipboard /*= false*/)
 				// clip data into lines
 				std::wstring line;
 				while (std::getline(ss, line)) {
-					linevec.emplace_back(line);
+					layout_str += line;
 				}
 			}
 			::CloseClipboard();
@@ -434,52 +454,33 @@ bool LoadBoardState(std::wstring source, bool useClipboard /*= false*/)
 			auto finalpath = std::filesystem::current_path() / inpath.filename();
 			inpath = finalpath;
 		}
-
-		std::wifstream in(inpath.c_str());
-		if (!in.is_open())
-			return false;
-
-		std::wstring line;
-		while (std::getline(in, line)) {
-			linevec.emplace_back(line);
-		}
-		in.close();
+		
+        std::ifstream infile(inpath);
+        std::wstringstream buffer;
+        buffer << infile.rdbuf();
+        layout_str = buffer.str();
+        if (infile.is_open()) {
+            std::wstringstream buffer;
+            buffer << infile.rdbuf();
+            layout_str = buffer.str();
+            infile.close();
+        } 
+		else 
+		{
+            std::wcerr << L"# Failed to open input file" << std::endl;
+            return false;
+        }
 	}
 
+	std::replace(layout_str.begin(), layout_str.end(), L'.', L'0');
+
+	// remove all non-numeric characters, including newlines
+	layout_str.erase(std::remove_if(layout_str.begin(), layout_str.end(), [](wchar_t c) { return !std::isdigit(c); }), layout_str.end());
 
 	// lets do some validity checks
-	if (linevec.size() < 9) {
-		std::wcerr << L"# not enough board lines" << std::endl;
+	if (!solver.LoadBoardFromStringLayout(sboard, layout_str)) {
+		std::wcerr << L"# Invalid board layout" << std::endl;
 		return false;
-	}
-
-	int row = 0;
-	for (auto & l : linevec) {
-		if (l.empty() || (l[0] == L'+') || (l[0] == L'-'))
-			continue;
-
-		int col = 0;
-		for (auto & c : l) {
-			if ((c == L'|'))
-				continue;
-
-			sboard.SetCell(col, row, SBoard::CharacterToCell(c));
-			col++;
-
-			// skip if we have enough
-			if (col >= BOARD_SIZE)
-				break;
-		}
-
-		if (col < BOARD_SIZE) {
-			std::wcerr << L"# not enough columns in row " << row << std::endl;
-			return false;
-		}
-
-		row++;
-
-		if (row > BOARD_SIZE)
-			break;
 	}
 
 	return true;

@@ -64,16 +64,40 @@ struct SPos
 struct SCell 
 {
 public:
-	SCell(SValueEnum v = SValueEnum::SValue_Empty, SStateEnum s = SStateEnum::SState_Free)
-		: value(v), state(s)
-	{
+	SCell() {
+		position = SPos(0, 0);
+		value = SValueEnum::SValue_Empty;
+		state = SStateEnum::SState_Free;
 	}
 
-	SPos position;
-	SValueEnum value;
-	SStateEnum state;
+	SCell(SValueEnum v, SStateEnum s = SStateEnum::SState_Free)
+		: position{}, value(v), state(s)
+	{
+	}
+	~SCell() = default;
 
-	bool IsSolved() {
+	// copy constructor
+	SCell(const SCell& other) {
+		position = other.position;
+		value = other.value;
+		state = other.state;
+	}	
+
+	// assignment operator
+	SCell& operator=(const SCell& other) {
+		if (this != &other) {
+			position = other.position;
+			value = other.value;
+			state = other.state;
+		}
+		return *this;
+	}
+
+	SPos position = SPos(0, 0);
+	SValueEnum value = SValueEnum::SValue_Empty;
+	SStateEnum state = SStateEnum::SState_Free;
+
+	[[nodiscard]] bool IsSolved() const {
 		return (state != SStateEnum::SState_Free);
 	}
 };
@@ -90,10 +114,10 @@ public:
 	SBoard();
 
 	// Returns the array of cells for board row
-	std::vector<SCell> GetRow(int);
+	std::vector<SCell> GetRow(int) const;
 
 	// Returns the array of cells for board row
-	std::vector<SCell> GetCol(int);
+	std::vector<SCell> GetCol(int) const;
 
 	/*
 	* Returns the 3x3 blocks of the sudoku board as an array of cells.
@@ -119,14 +143,14 @@ public:
 	* {9,6,5,4,1,8,7,2,3}
 	*
 	*/
-	std::vector<SCell> GetBlock(int);
+	std::vector<SCell> GetBlock(int) const;
 
 	/*!	\brief Returns the block index from the cell coordinates
 	* 
 	*	
 	*	\see: GetBlock()
 	*/
-	int GetBlockIndexFrom(int col, int row);
+	int GetBlockIndexFrom(int col, int row) const;
 
 	std::vector<SPos> GetFreeCells();
 
@@ -137,10 +161,10 @@ public:
 	* col and row are the zero-based index of the board cell.
 	* This must be in the range 0 - 8.
 	*/
-	SCell GetCell(int col, int row);
+	SCell GetCell(int col, int row) const;
 
 	/*overload*/
-	SCell GetCell(SPos p) {
+	SCell GetCell(SPos p) const {
 		return GetCell(p.col, p.row);
 	}
 
@@ -169,28 +193,28 @@ public:
 	/*
 	* Tests if given array of cells has all the numbers present
 	*/
-	bool IsSolved(std::vector<SCell>&);
+    [[nodiscard]] bool IsSolved(std::vector<SCell>& cells) const;
 
 	/*
 	* Validate given array of cells
 	* Tests for duplicates. Ignores empty cells.
 	*/
-	bool IsValid(std::vector<SCell>&);
+	[[nodiscard]] bool IsValid(std::vector<SCell>&) const;
 
 	/*
 	* Test to see if given value can be placed at the given cell
 	*/
-	bool IsValueValidAt(int col, int row, SValueEnum value);
+	[[nodiscard]] bool IsValueValidAt(int col, int row, SValueEnum value) const;
 
 	/* Overloaded function */
-	bool IsValueValidAt(SPos pos, SValueEnum value) {
+	[[nodiscard]] bool IsValueValidAt(SPos pos, SValueEnum value) const {
 		return IsValueValidAt(pos.col, pos.row, value);
 	}
 
 	/*
 	* Performs a test on the entire board in its current state for completeness.
 	*/
-	bool IsBoardSolved();
+	bool IsBoardSolved() const;
 
 	/*!	\brief Returns the visual character to represent given cell state
 	* 
@@ -214,6 +238,6 @@ protected:
 	* Returns the index within our internal array, given the cell coordinates.
 	* Cells are referred to in columns/rows
 	*/
-	int GetCellIndexFrom(int col, int row);
+	[[nodiscard]] int GetCellIndexFrom(int col, int row) const;
 };
 
