@@ -114,8 +114,7 @@ Or it can be more compact, as follows:
 The solver will ignore blank lines or separators (those that being with '-' or '+').
 
 # Todo
-- Remove support for VS2017 solution
-- Add unit test
-- Fix any issues
+- ~~Add unit test~~
+- ~~Fix any issues~~
 
 <sup>Updated: May 11th, 2024</sup>
